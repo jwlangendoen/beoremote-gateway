@@ -17,10 +17,13 @@ class GatewayRuntime:
         self.options = options
         self.publisher = self.server = self.announcer = self.discovery_task = None
         self.buttons = ButtonFilter()
+        self.observer = None
         self.stop = asyncio.Event()
 
     def telegram(self, event):
         LOG.debug("telegram %s", json.dumps(event, separators=(",", ":")))
+        if self.observer is not None and self.observer(event) is False:
+            return
         if self.publisher is not None and self.buttons.accept(event):
             self.publisher.submit(event)
 

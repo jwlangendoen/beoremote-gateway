@@ -14,12 +14,16 @@ section { background:var(--card); border:1px solid var(--line); border-radius:14
 button { border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--text); padding:10px 16px; font:inherit; cursor:pointer; }
 button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
 a.button { border:1px solid var(--line); border-radius:8px; color:var(--text); padding:10px 16px; text-decoration:none; }
-button:disabled { opacity:.55; cursor:default; } button:focus-visible,input:focus-visible { outline:3px solid #00a4cf; outline-offset:3px; }
+button:disabled { opacity:.55; cursor:default; } button:focus-visible,input:focus-visible,select:focus-visible { outline:3px solid #00a4cf; outline-offset:3px; }
 .actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; } .product { display:flex; gap:12px; align-items:flex-start; border:1px solid var(--line); border-radius:9px; padding:14px; margin:10px 0; cursor:pointer; }
 .product:has(input:checked) { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 7%,var(--card)); }
 input[type=radio] { accent-color:var(--accent); width:19px; height:19px; margin:4px 0 0; flex-shrink:0; }
 .product strong,.product small { display:block; overflow-wrap:anywhere; } #products { margin:16px 0; } #notice { color:#a33f17; }
 .badge { display:inline-block; border-radius:20px; background:color-mix(in srgb,var(--accent) 10%,var(--card)); color:var(--accent); padding:3px 10px; font-size:14px; font-weight:600; margin-bottom:12px; }
+label.field { display:block; margin:16px 0; font-weight:600; }
+input[type=text],select { display:block; width:100%; margin-top:6px; border:1px solid var(--line); border-radius:8px; padding:11px; background:var(--card); color:var(--text); font:inherit; }
+.rule { border-top:1px solid var(--line); padding:16px 0; } .rule strong { display:block; } .rule .actions { margin-top:10px; } .rule button { padding:6px 12px; font-size:14px; } a { color:var(--accent); }
+#learn-panel { border-top:1px solid var(--line); margin-top:20px; padding-top:20px; } #action-note { margin-top:14px; } #saved { padding:12px; background:color-mix(in srgb,var(--accent) 8%,var(--card)); border-radius:8px; }
 ol { padding-left:23px; } li { margin:7px 0; } details { margin-top:16px; } summary { cursor:pointer; color:var(--muted); }
 code { font-size:13px; overflow-wrap:anywhere; } [hidden] { display:none !important; }
 @media(prefers-color-scheme:dark) { :root { --bg:#10191e; --card:#1a272e; --text:#e5edf0; --muted:#a7bac4; --line:#35464f; --accent:#70d4ee; } button.primary { color:#10242d; } #notice { color:#ffb18e; } }
@@ -52,8 +56,30 @@ code { font-size:13px; overflow-wrap:anywhere; } [hidden] { display:none !import
   </section>
   <section aria-labelledby="actions-title">
     <h2 id="actions-title">Choose your LIGHT actions</h2>
-    <p>Import the LIGHT action blueprint, create one automation per button and start with <strong>Dry run</strong> enabled.</p>
-    <div class="actions"><a class="button" href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fjwlangendoen%2Fbeoremote-gateway%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fbeoremote_light_action.yaml" target="_blank" rel="noopener noreferrer">Import blueprint</a><button id="copy" type="button" disabled>Copy TV identity</button><small id="copied" aria-live="polite"></small></div>
+    <p>Teach the app a button, then choose what it should do.</p>
+    <p id="action-note" class="muted" role="status">Connect your TV to get started.</p>
+    <p id="saved" role="status" hidden></p>
+    <div id="rules"></div>
+    <div class="actions"><button id="add" class="primary" type="button" disabled>Add a button</button><button id="reload-actions" type="button" disabled>Refresh actions</button></div>
+    <div id="learn-panel" hidden>
+      <h2 id="learn-title">Press a LIGHT button</h2>
+      <p id="learn-note" role="status"></p>
+      <form id="action-form" hidden>
+        <label class="field" for="button-name">Button name<input id="button-name" type="text" maxlength="64" required autocomplete="off" placeholder="For example: Movie"></label>
+        <label class="field" for="action-kind">What should happen?<select id="action-kind"><option value="scene">Activate a scene</option><option value="light_off">Turn off lights</option></select></label>
+        <label class="field" for="action-target"><span id="target-label">Scene</span><select id="action-target" required></select></label>
+        <p id="target-note" class="muted"></p>
+        <button id="save" class="primary" type="submit">Save action</button>
+      </form>
+      <div class="actions" style="margin-top:12px"><button id="retry" type="button" hidden>Try again</button><button id="cancel" type="button">Cancel</button></div>
+    </div>
+    <details>
+      <summary>Existing automations and more options</summary>
+      <p>Turn off any older automation for the same button before adding it here, so one press doesn't run both. Learning a button does not run its action.</p>
+      <p>To change a saved action, choose <strong>Change</strong> and press the same button again. Saving replaces its previous choice. These are ordinary Home Assistant automations; use <strong>More options</strong> for other actions. Automations edited there are managed there from then on.</p>
+      <p>The optional blueprint is still available for advanced setups.</p>
+      <div class="actions"><a class="button" href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fjwlangendoen%2Fbeoremote-gateway%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fbeoremote_light_action.yaml" target="_blank" rel="noopener noreferrer">Import blueprint</a><button id="copy" type="button" disabled>Copy TV identity</button><small id="copied" aria-live="polite"></small></div>
+    </details>
     <details>
       <summary>Give the LIGHT functions your own names</summary>
       <p>The display names are edited on the Beoremote One. For the Horizon, the editor is in a separate infrared product profile:</p>
@@ -63,7 +89,7 @@ code { font-size:13px; overflow-wrap:anywhere; } [hidden] { display:none !import
         <li>Open <strong>Settings → Advanced → Light menu</strong>. Use <strong>Rename</strong> for names, <strong>Show</strong> for visible functions and <strong>Move</strong> for their order.</li>
         <li>Switch back to your usual Bluetooth-paired Horizon product. The renamed LIGHT functions remain available there.</li>
       </ol>
-      <p class="muted">Keep your Horizon pairing. The extra IR profile only gives you access to this editor. A name such as “Movie” is a remote label; choose the matching HA scene separately in your automation.</p>
+      <p class="muted">Keep your Horizon pairing. The extra IR profile only gives you access to this editor. A name such as “Movie” is a remote label; choose the matching scene in this app separately. The app cannot read or change the names on the remote.</p>
     </details>
   </section>
 </main>
@@ -72,6 +98,79 @@ const base = new URL(__BASE_JSON__, location.origin);
 const token = __TOKEN_JSON__;
 const el = id => document.getElementById(id);
 let status = null, selected = '', busy = false, copyValue = '';
+let actionBusy=false, loadedTV='', learningID='', targets={scenes:[],lights:[]}, editing=null;
+function actionNotice(text) { el('action-note').textContent=text; }
+function actionReady(data) { return data?.runtime?.listener && data.runtime.ha.delivery!=='disabled'; }
+function actionControls() {
+  const ready=actionReady(status);
+  el('add').disabled=!ready || actionBusy || !!learningID;
+  el('reload-actions').disabled=!ready || actionBusy;
+  el('save').disabled=actionBusy || !el('action-target').value;
+  el('cancel').disabled=actionBusy; el('retry').disabled=actionBusy;
+  for(const button of el('rules').querySelectorAll('button'))button.disabled=actionBusy || !!learningID;
+}
+function showLearning(learning) {
+  if(!learningID)return;
+  el('learn-panel').hidden=false;
+  const current=learning?.id===learningID;
+  const captured=current && learning.state==='captured';
+  el('action-form').hidden=!captured; el('retry').hidden=current;
+  el('learn-title').textContent=captured?'Choose an action':current?'Press a LIGHT button':'No button received';
+  el('learn-note').textContent=captured?'Button received. Give it a name and choose what it should do.':current?'Open LIGHT on your Beoremote and press the function you want to use. Waiting '+learning.seconds_left+' seconds…':'Check that your TV is connected and the gateway is selected on the TV, then try again.';
+  if(captured && el('action-form').dataset.session!==learningID) {
+    el('action-form').dataset.session=learningID;
+    el('button-name').value=editing?.name || learning.button_name;
+    el('action-kind').value=editing?.kind || 'scene';
+    renderTargets(editing?.target); el('button-name').focus(); el('button-name').select();
+  }
+  actionControls();
+}
+function renderTargets(chosen) {
+  const scene=el('action-kind').value==='scene', items=targets[scene?'scenes':'lights'];
+  el('target-label').textContent=scene?'Scene':'Light or light group';
+  el('action-target').replaceChildren();
+  const empty=document.createElement('option');empty.value='';empty.textContent=scene?'Choose a scene':'Choose lights';el('action-target').append(empty);
+  for(const item of items){const option=document.createElement('option');option.value=item.id;option.textContent=item.name;el('action-target').append(option);}
+  if(chosen && items.some(item=>item.id===chosen))el('action-target').value=chosen;
+  el('target-note').textContent=items.length?(scene?'Your existing Home Assistant scenes.':'Choose a light group to turn off several lights together.'):(scene?'No scenes found. Create a scene in Home Assistant, then choose Refresh actions.':'No lights found in Home Assistant. Add your lights there first.');
+  actionControls();
+}
+async function loadActions() {
+  const jid=status?.tv_jid;
+  if(!actionReady(status))return;
+  const data=await api('api/actions');
+  if(status.tv_jid!==jid)return;
+  el('rules').replaceChildren();
+  for(const rule of data.actions) {
+    const row=document.createElement('div');row.className='rule';
+    const name=document.createElement('strong');name.textContent=rule.name+(rule.enabled?'':' · Paused');
+    const description=document.createElement('span');description.className='muted';description.textContent=rule.customized?'Edited in Home Assistant':(rule.kind==='scene'?'Scene: ':'Turn off: ')+rule.target_name;
+    const controls=document.createElement('div');controls.className='actions';
+    const link=document.createElement('a');link.textContent='More options';link.href=rule.edit_path;link.target='_top';
+    if(!rule.customized) {
+      for(const [label,operation] of [['Change',()=>startLearning(rule)],[rule.enabled?'Pause':'Enable',()=>changeRule('toggle',{id:rule.id,enabled:!rule.enabled})],['Remove',()=>{if(confirm('Remove the action for “'+rule.name+'”?'))return changeRule('remove',{id:rule.id});}]]) {
+        const button=document.createElement('button');button.type='button';button.textContent=label;button.addEventListener('click',operation);controls.append(button);
+      }
+    }
+    controls.append(link);row.append(name,description,controls);el('rules').append(row);
+  }
+  loadedTV=jid;
+  actionNotice(data.actions.length?'Your buttons are ready. Press one on your remote to try it.':'No buttons yet. Add your first LIGHT button below.');
+  actionControls();
+}
+async function changeRule(operation,body) {
+  if(actionBusy)return;actionBusy=true;actionControls();
+  try {await api('api/actions/'+operation,body);await loadActions();}catch(error){actionNotice(error.message);}finally{actionBusy=false;actionControls();}
+}
+async function startLearning(rule=null) {
+  if(actionBusy)return;actionBusy=true;editing=rule;el('saved').hidden=true;actionControls();
+  try {
+    targets=await api('api/targets');
+    const learning=await api('api/learning/start',{});learningID=learning.id;
+    showLearning(learning);el('learn-title').scrollIntoView({behavior:'smooth',block:'center'});
+  }catch(error){actionNotice(error.message);}finally{actionBusy=false;actionControls();}
+}
+
 function notice(text='') { el('notice').textContent=text; el('notice').hidden=!text; }
 async function api(path, body) {
   const options = body === undefined ? {} : {method:'POST',headers:{'Content-Type':'application/json','X-Setup-Token':token},body:JSON.stringify(body)};
@@ -90,9 +189,19 @@ function show(data) {
   copyValue=data.tv_jid || ''; el('copy').disabled=!copyValue;
   el('technical').hidden=!copyValue;
   el('details').textContent=[copyValue,data.addresses?.tv?'TV: '+data.addresses.tv:'',data.addresses?.gateway?'Gateway: '+data.addresses.gateway:''].filter(Boolean).join(' · ');
+  if(!actionReady(data)) {
+    loadedTV=''; learningID=''; el('learn-panel').hidden=true; el('rules').replaceChildren(); actionNotice('Connect your TV to get started.');
+  } else {
+    if(loadedTV && loadedTV!==data.tv_jid){loadedTV='';learningID='';el('rules').replaceChildren();el('learn-panel').hidden=true;}
+    showLearning(data.learning);
+  }
+  actionControls();
   if (data.error) notice(data.error); else if(previousError) notice();
 }
-async function refresh() { try { show(await api('api/status')); } catch(error) { notice(error.message); } }
+async function refresh() { try {
+  show(await api('api/status'));
+  if(actionReady(status) && !loadedTV && !actionBusy) { loadedTV=status.tv_jid; try {await loadActions();}catch(error){actionNotice(error.message);} }
+} catch(error) { notice(error.message); } }
 async function scan() {
   if(busy)return; busy=true; notice(); el('scan').disabled=true; el('select').disabled=true;
   selected=''; el('products').replaceChildren(); el('scan-note').textContent='Looking for B&O products…';
@@ -110,6 +219,29 @@ async function scan() {
   } catch(error) { notice(error.message); el('scan-note').textContent=''; }
   finally { busy=false;el('scan').disabled=false; }
 }
+el('add').addEventListener('click',()=>startLearning());
+el('retry').addEventListener('click',()=>startLearning(editing));
+el('cancel').addEventListener('click',async()=>{
+  if(actionBusy)return;actionBusy=true;actionControls();
+  try{await api('api/learning/cancel',{});learningID='';editing=null;el('learn-panel').hidden=true;}
+  catch(error){actionNotice(error.message);}finally{actionBusy=false;actionControls();}
+});
+el('reload-actions').addEventListener('click',async()=>{
+  if(actionBusy)return;actionBusy=true;actionControls();
+  try{targets=await api('api/targets');const chosen=el('action-target').value;renderTargets(chosen);await loadActions();}
+  catch(error){actionNotice(error.message);}finally{actionBusy=false;actionControls();}
+});
+el('action-kind').addEventListener('change',()=>renderTargets());
+el('action-target').addEventListener('change',actionControls);
+el('action-form').addEventListener('submit',async event=>{
+  event.preventDefault();if(actionBusy)return;actionBusy=true;actionControls();
+  try{
+    const saved=await api('api/actions/save',{session_id:learningID,name:el('button-name').value,kind:el('action-kind').value,target:el('action-target').value});
+    learningID='';editing=null;el('learn-panel').hidden=true;
+    el('saved').textContent='Saved “'+saved.name+'”. Release the button, then press it again to try the action.';el('saved').hidden=false;
+    await loadActions();
+  }catch(error){actionNotice(error.message);}finally{actionBusy=false;actionControls();}
+});
 el('scan').addEventListener('click',scan);
 el('select').addEventListener('click',async()=>{
   if(!selected || busy)return;busy=true;el('select').disabled=true;notice();

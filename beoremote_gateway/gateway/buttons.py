@@ -5,7 +5,7 @@ import time
 
 class ButtonFilter:
     def __init__(self, clock=time.monotonic, hold_timeout=2.0, debounce=0.12,
-                 commands=frozenset((0, 15, 37, 38, 39, 57))):
+                 commands=None):
         self.clock = clock
         self.hold_timeout = hold_timeout
         self.debounce = debounce
@@ -30,7 +30,9 @@ class ButtonFilter:
         if raw[4] == 126:
             self.pressed.pop(key, None)
             return True
-        if raw[4] not in self.commands:
+        if self.commands is not None and raw[4] not in self.commands:
+            return True
+        if raw[:4] != bytes([0, 27, 0, 0]) or any(raw[5:]):
             return True
         previous = self.pressed.get(key)
         identity = (key, raw)

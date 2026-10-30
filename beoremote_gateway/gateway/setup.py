@@ -8,7 +8,9 @@ from pathlib import Path
 import time
 
 from .autodetect import PRODUCT_JID, discover_devices, route_address
+from .actions import ActionManager
 from .config import Options
+from .learning import ButtonLearning
 from .runtime import GatewayRuntime
 
 LOG = logging.getLogger(__name__)
@@ -42,10 +44,11 @@ def save_selection(path, selection):
 
 class SetupController:
     def __init__(self, options, path=SETUP_PATH, scanner=discover_devices,
-                 route=route_address, runtime_factory=GatewayRuntime):
+                 route=route_address, runtime_factory=GatewayRuntime, actions=None):
         self.options, self.path = options, Path(path)
         self.scanner, self.route, self.runtime_factory = scanner, route, runtime_factory
         self.selection = self.runtime = self.worker = None
+        self.learning, self.actions = ButtonLearning(), actions or ActionManager()
         self.devices = []
         self.scanned_at = float("-inf")
         self.error = ""
@@ -64,6 +67,7 @@ class SetupController:
             self.worker = asyncio.create_task(self.maintain(), name="tv-discovery")
         elif self.options.mode != "disabled":
             self.runtime = self.runtime_factory(self.options)
+            self.runtime.observer = self.learning.observe
             await self.runtime.start()
             self.state = "active"
 
@@ -104,6 +108,7 @@ class SetupController:
             self.wake.set()
 
     async def _close_runtime(self):
+        self.learning.finish()
         if self.runtime is not None:
             runtime, self.runtime = self.runtime, None
             await runtime.close()
@@ -118,6 +123,7 @@ class SetupController:
             if self.runtime is None or self.runtime.options != options:
                 await self._close_runtime()
                 runtime = self.runtime_factory(options)
+                runtime.observer = self.learning.observe
                 await runtime.start()
                 self.runtime = runtime
             self.state, self.error = "active", ""
@@ -163,7 +169,7 @@ class SetupController:
     def status(self):
         result = {"mode": self.options.mode, "state": self.state, "error": self.error,
                   "selection": self.selection, "gateway_name": self.options.gateway_name,
-                  "runtime": self.snapshot()}
+                  "runtime": self.snapshot(), "learning": self.learning.status()}
         if self.runtime is not None:
             result["addresses"] = {"tv": self.runtime.options.horizon_address,
                                    "gateway": self.runtime.options.advertise_address}
@@ -171,6 +177,35 @@ class SetupController:
         elif self.selection is not None:
             result["tv_jid"] = self.selection["jid"]
         return result
+
+    def action_tv(self):
+        if (self.runtime is None or not self.runtime.options.publish_ha_events
+                or not self.runtime.snapshot()["listener"]):
+            raise ValueError("Connect your TV first. In manual mode, also enable Publish HA events.")
+        return self.runtime.options.horizon_jid
+
+    async def start_learning(self):
+        async with self.lock:
+            return self.learning.start(self.action_tv())
+
+    async def cancel_learning(self):
+        async with self.lock:
+            self.learning.finish()
+
+    async def save_action(self, session_id, name, kind, target):
+        async with self.lock:
+            event = self.learning.capture(session_id, self.action_tv())
+            result = await self.actions.save(event, name, kind, target)
+            self.learning.finish()
+            return result
+
+    async def toggle_action(self, key, enabled):
+        async with self.lock:
+            await self.actions.toggle(key, self.action_tv(), enabled)
+
+    async def remove_action(self, key):
+        async with self.lock:
+            await self.actions.remove(key, self.action_tv())
 
     async def close(self):
         self.stop.set()

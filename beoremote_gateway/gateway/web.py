@@ -7,6 +7,8 @@ import secrets
 
 from aiohttp import ClientError, ClientSession, ClientTimeout, web
 
+from .ha import HAError
+
 INGRESS_PEER = "172.30.32.2"
 
 
@@ -49,6 +51,8 @@ def make_app(controller, allowed_peers=frozenset({INGRESS_PEER})):
             response = await handler(request)
         except ValueError as error:
             response = web.json_response({"error": str(error)}, status=400)
+        except HAError as error:
+            response = web.json_response({"error": str(error)}, status=503)
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
         return response
@@ -91,9 +95,46 @@ def make_app(controller, allowed_peers=frozenset({INGRESS_PEER})):
         await controller.pause()
         return web.json_response(controller.status())
 
+    async def targets(_request):
+        controller.action_tv()
+        return web.json_response(await controller.actions.targets())
+
+    async def actions(_request):
+        return web.json_response({"actions": await controller.actions.list(controller.action_tv())})
+
+    async def learn(_request):
+        return web.json_response(await controller.start_learning())
+
+    async def cancel(_request):
+        await controller.cancel_learning()
+        return web.json_response({"ok": True})
+
+    async def fields(request, keys):
+        data = await request.json()
+        if not isinstance(data, dict) or set(data) != set(keys):
+            raise ValueError("Reload the page and try again.")
+        return data
+
+    async def save(request):
+        data = await fields(request, ("session_id", "name", "kind", "target"))
+        return web.json_response(await controller.save_action(**data))
+
+    async def toggle(request):
+        data = await fields(request, ("id", "enabled"))
+        await controller.toggle_action(data["id"], data["enabled"])
+        return web.json_response({"ok": True})
+
+    async def remove(request):
+        data = await fields(request, ("id",))
+        await controller.remove_action(data["id"])
+        return web.json_response({"ok": True})
+
     app.add_routes([web.get("/", index), web.get("/api/status", status),
                     web.get("/api/devices", devices), web.post("/api/select", select),
-                    web.post("/api/pause", pause)])
+                    web.post("/api/pause", pause), web.get("/api/targets", targets),
+                    web.get("/api/actions", actions), web.post("/api/learning/start", learn),
+                    web.post("/api/learning/cancel", cancel), web.post("/api/actions/save", save),
+                    web.post("/api/actions/toggle", toggle), web.post("/api/actions/remove", remove)])
     return app
 
 
