@@ -1,19 +1,19 @@
 {
   "configuration": {
     "mode": {
-      "name": "Mode",
-      "description": "Use auto and Open Web UI for setup. Existing manual modes remain available."
+      "name": "Advanced: Mode",
+      "description": "Leave this unset. Start the app and use Open Web UI to choose your TV and button actions."
     },
     "horizon_address": {
-      "name": "TV address (manual)",
+      "name": "Advanced: TV address (manual)",
       "description": "Leave empty in auto mode."
     },
     "horizon_jid": {
-      "name": "TV identity (manual)",
+      "name": "Advanced: TV identity (manual)",
       "description": "Leave empty in auto mode; the setup page discovers it."
     },
     "advertise_address": {
-      "name": "Gateway LAN address (manual)",
+      "name": "Advanced: Gateway LAN address (manual)",
       "description": "Leave empty in auto mode; the outgoing LAN address is detected."
     },
     "gateway_name": {
@@ -21,19 +21,19 @@
       "description": "Name shown under Customer Service Menu → Settings → BeoLink Gateway. New installs use Home Assistant Gateway; saved names are kept on update."
     },
     "gateway_jid": {
-      "name": "Gateway identity (advanced)",
+      "name": "Advanced: Gateway identity (advanced)",
       "description": "Keep the default unless running separate gateways."
     },
     "xmpp_port": {
-      "name": "TV connection port (advanced)",
+      "name": "Advanced: TV connection port (advanced)",
       "description": "Default 5222. Stop an older gateway before using the same port."
     },
     "publish_ha_events": {
-      "name": "Publish events (manual)",
+      "name": "Advanced: Publish events (manual)",
       "description": "Automatic setup enables events after you choose a TV."
     },
     "log_level": {
-      "name": "Log level",
+      "name": "Advanced: Log level",
       "description": "Use info for normal operation. Debug includes device identities."
     }
   }

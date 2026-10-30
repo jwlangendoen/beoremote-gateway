@@ -21,7 +21,7 @@ def validate_ipv4(value):
 
 @dataclass(frozen=True)
 class Options:
-    mode: str = "disabled"
+    mode: str = "auto"
     horizon_address: str = ""
     horizon_jid: str = ""
     advertise_address: str = ""

@@ -179,6 +179,7 @@ class SetupFixture:
 
 class ControllerTests(SetupFixture, unittest.IsolatedAsyncioTestCase):
     async def test_fresh_setup_does_not_choose_or_start_a_device(self):
+        self.controller = self.make_controller(Options.from_dict({}))
         await self.controller.start()
         await asyncio.sleep(0)
         self.scanner.assert_not_called()

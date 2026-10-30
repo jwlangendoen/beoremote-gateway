@@ -1,3 +1,14 @@
+# 0.4.2
+
+- Start with no app options to fill in. Technical overrides are optional;
+  choose your TV and button actions in Open Web UI.
+- Put Start → Open Web UI first in the app introduction. Explain Show in sidebar
+  so the app can be opened directly from the Home Assistant menu.
+- Shorten the setup guide to three steps. Move remote naming, manual options
+  and protocol details to separate pages.
+- Existing saved app options are kept. Restore defaults once to clear the old
+  technical fields if you no longer use them.
+
 # 0.4.1
 
 - Spell out setup in order: start the app, choose the TV, open the Horizon's

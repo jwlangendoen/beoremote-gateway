@@ -5,14 +5,18 @@ image="${1:?Usage: bash tools/container_check.sh IMAGE}"
 base="beoremote-release-check-$$"
 options_dir="$(mktemp -d)"
 cleanup() {
-  docker rm -f "$base-disabled" "$base-auto" >/dev/null 2>&1 || true
-  rm -f "$options_dir/disabled.json" "$options_dir/auto.json"
+  docker rm -f "$base-disabled" "$base-auto" "$base-defaults" >/dev/null 2>&1 || true
+  rm -f "$options_dir/disabled.json" "$options_dir/auto.json" "$options_dir/defaults.json"
   rmdir "$options_dir"
 }
 trap cleanup EXIT
-for mode in disabled auto; do
+for mode in disabled auto defaults; do
   container="$base-$mode"
-  echo "{\"mode\":\"$mode\"}" > "$options_dir/$mode.json"
+  if [ "$mode" = defaults ]; then
+    echo '{}' > "$options_dir/$mode.json"
+  else
+    echo "{\"mode\":\"$mode\"}" > "$options_dir/$mode.json"
+  fi
   docker run --name "$container" --network none --init \
     --mount "type=bind,src=$options_dir/$mode.json,dst=/data/options.json,readonly" \
     -d "$image" >/dev/null

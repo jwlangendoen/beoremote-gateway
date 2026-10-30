@@ -123,7 +123,7 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
         stop = asyncio.Event()
         stop.set()
         with patch("gateway.runtime.GatewayServer") as server, patch("gateway.runtime.Announcer") as announcer:
-            await run(Options.from_dict({}), stop)
+            await run(Options.from_dict({"mode": "disabled"}), stop)
         server.assert_not_called()
         announcer.assert_not_called()
 
@@ -204,7 +204,7 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
 
 class ConfigurationTests(unittest.TestCase):
     def test_active_mode_requires_explicit_tv_and_advertise_address(self):
-        self.assertEqual(Options.from_dict({}).mode, "disabled")
+        self.assertEqual(Options.from_dict({}).mode, "auto")
         for invalid in ({"mode": "listen"}, {"mode": "advertise"},
                         {"publish_ha_events": "false"}, {"xmpp_port": True},
                         {"gateway_jid": "bad identity"}, {"gateway_name": "  "},

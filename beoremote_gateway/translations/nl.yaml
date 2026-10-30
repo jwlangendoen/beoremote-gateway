@@ -1,19 +1,19 @@
 {
   "configuration": {
     "mode": {
-      "name": "Modus",
-      "description": "Gebruik auto en Open Web UI voor het instellen. Handmatige modi blijven beschikbaar."
+      "name": "Geavanceerd: Modus",
+      "description": "Leeg laten. Start de app en gebruik Open Web UI om je tv en knopacties in te stellen."
     },
     "horizon_address": {
-      "name": "Tv-adres (handmatig)",
+      "name": "Geavanceerd: Tv-adres (handmatig)",
       "description": "Leeg laten in de modus auto."
     },
     "horizon_jid": {
-      "name": "Tv-identiteit (handmatig)",
+      "name": "Geavanceerd: Tv-identiteit (handmatig)",
       "description": "Leeg laten in de modus auto; de instelpagina zoekt deze op."
     },
     "advertise_address": {
-      "name": "LAN-adres gateway (handmatig)",
+      "name": "Geavanceerd: LAN-adres gateway (handmatig)",
       "description": "Leeg laten in de modus auto; het juiste LAN-adres wordt gevonden."
     },
     "gateway_name": {
@@ -21,19 +21,19 @@
       "description": "Naam onder Customer Service Menu → Settings → BeoLink Gateway op de Horizon. Nieuwe installaties gebruiken Home Assistant Gateway; opgeslagen namen blijven behouden."
     },
     "gateway_jid": {
-      "name": "Gateway-identiteit (geavanceerd)",
+      "name": "Geavanceerd: Gateway-identiteit (geavanceerd)",
       "description": "Behoud de standaardwaarde, tenzij je meerdere gateways gebruikt."
     },
     "xmpp_port": {
-      "name": "Verbindingspoort tv (geavanceerd)",
+      "name": "Geavanceerd: Verbindingspoort tv (geavanceerd)",
       "description": "Standaard 5222. Stop een oudere gateway voordat je dezelfde poort gebruikt."
     },
     "publish_ha_events": {
-      "name": "Events publiceren (handmatig)",
+      "name": "Geavanceerd: Events publiceren (handmatig)",
       "description": "Automatisch instellen schakelt events in nadat je een tv kiest."
     },
     "log_level": {
-      "name": "Logniveau",
+      "name": "Geavanceerd: Logniveau",
       "description": "Gebruik normaal info. Debug bevat apparaatidentiteiten."
     }
   }

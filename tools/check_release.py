@@ -37,7 +37,9 @@ def check():
     assert defaults.mode == "auto" and defaults.publish_ha_events is False
     assert config["ingress"] is True and config["ingress_port"] == 0
     assert not any(defaults.as_dict()[key] for key in ("horizon_address", "horizon_jid", "advertise_address"))
-    assert set(config["options"]) == set(config["schema"])
+    assert config["options"] == {}, "Normal setup must not require technical app options"
+    assert set(config["schema"]) == set(defaults.as_dict())
+    assert all(value.endswith("?") for value in config["schema"].values())
     assert config["stage"] == "experimental"
     assert config["arch"] == ["aarch64", "amd64"]
     assert "image" not in config, "First release builds from source on the user's HA host"

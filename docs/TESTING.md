@@ -58,6 +58,19 @@ stale events and future events did not. No real HA instance, TV or lights were
 contacted by this test. The Supervisor proxy and a physical button still need the
 full installation check below.
 
+## Simple app setup (0.4.2)
+
+The default app options are empty and the runtime defaults to auto mode. Existing
+manual options remain valid. The startup checks cover empty options as well as
+explicit auto and disabled modes; without a selected TV, none opens the receiver
+or advertises a gateway. Controller tests cover restarting with a saved TV.
+
+The app schema follows HA's optional-options format: unset fields are hidden
+behind its optional-fields switch. Older saved options remain visible until the
+user resets them. This behavior was checked against the HA app configuration
+documentation and frontend implementation; it was not exercised in the user's
+live Supervisor UI.
+
 ## Still to try
 
 - A full 0.4.0 setup through HA ingress and the repository installation, including

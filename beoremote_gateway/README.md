@@ -1,19 +1,15 @@
 # Beoremote Gateway
 
-Use the LIGHT menu on your Beoremote One to run Home Assistant actions through
-your Beovision Horizon. I use it for lighting scenes at home.
+Use the LIGHT menu on your Beoremote One for Home Assistant scenes through your
+Beovision Horizon.
 
-1. Start the app, open **Open Web UI**, choose your TV and click **Use this TV**.
-2. On the Horizon: **MENU → Settings → highlight Service Menu → red button →
-   Customer Service Menu → Settings → BeoLink Gateway**. Select **Home Assistant
-   Gateway**, or the name shown in the app, and wait for **TV connected**.
-3. In the app, click **Add a button**, press a LIGHT function and choose a scene
-   or lights to turn off.
+**Start the app → Open Web UI → choose your TV.**
 
-Keep the app running before opening the gateway list on the TV. The
-[setup guide](DOCS.md#2-select-the-gateway-on-the-beovision-horizon) walks through
-the service-menu steps. Older installs keep their saved gateway name; change
-**Name in the TV menu** and restart to use the new English name.
+TV selection and button actions are set up in **Open Web UI**. You can leave the
+**Configuration** tab alone. Enable **Show in sidebar** on the Info tab to open
+Beoremote Gateway straight from your Home Assistant menu.
 
-Tested receiver hardware: Horizon and Home Assistant Green. See the [setup guide](DOCS.md)
-or the [project README](../README.md) to get started.
+[Setup guide](https://github.com/jwlangendoen/beoremote-gateway/blob/main/beoremote_gateway/DOCS.md)
+
+Tested with Horizon, Beoremote One and Home Assistant Green. Experimental hobby
+project; other TV models still need testing.

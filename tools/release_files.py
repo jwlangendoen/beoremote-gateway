@@ -10,6 +10,7 @@ FIXED = (
     ".github/ISSUE_TEMPLATE/compatibility.yml", ".github/ISSUE_TEMPLATE/config.yml",
     "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "repository.yaml",
     "requirements-dev.txt", "docs/TESTING.md", "docs/RELEASING.md",
+    "docs/REMOTE.md", "docs/REFERENCE.md",
     "beoremote_gateway/config.yaml", "beoremote_gateway/Dockerfile",
     "beoremote_gateway/.dockerignore", "beoremote_gateway/requirements.txt",
     "beoremote_gateway/README.md", "beoremote_gateway/DOCS.md", "beoremote_gateway/LICENSE",
