@@ -5,7 +5,11 @@ import tempfile
 import threading
 import time
 import unittest
-from unittest.mock import AsyncMock, Mock
+from urllib.error import HTTPError
+from unittest.mock import AsyncMock, Mock, patch
+
+from aiohttp import web
+from aiohttp.test_utils import TestServer
 
 from gateway.buttons import ButtonFilter
 from gateway.discovery import Announcer
@@ -13,7 +17,7 @@ from gateway.events import EventPublisher
 from gateway.health import HealthReporter, check_health
 from gateway.protocol import stream_header
 from gateway.server import GatewayServer
-from test_gateway import TV, GATEWAY, options
+from test_gateway import TV, GATEWAY, options, forward
 
 
 def event(command=15, address=27, originator="0"):
@@ -154,6 +158,32 @@ class DeliveryTests(unittest.IsolatedAsyncioTestCase):
         finally:
             await publisher.close()
 
+    async def test_event_credentials_bypass_environment_proxy_and_redirects(self):
+        origin_seen, proxy_seen = [], []
+        async def origin(request):
+            origin_seen.append((request.path, request.headers.get("Authorization")))
+            if request.path == "/redirect":
+                raise web.HTTPFound("/unexpected")
+            return web.Response(status=200)
+        async def proxy(request):
+            proxy_seen.append(request.headers.get("Authorization"))
+            return web.Response(status=200)
+        app, proxy_app = web.Application(), web.Application()
+        app.router.add_route("*", "/{path:.*}", origin)
+        proxy_app.router.add_route("*", "/{path:.*}", proxy)
+        async with TestServer(app) as server, TestServer(proxy_app) as proxy_server:
+            with patch("urllib.request.getproxies", return_value={"http": str(proxy_server.make_url('/'))}), \
+                    patch("urllib.request.proxy_bypass", return_value=False):
+                publisher = EventPublisher("synthetic-test-token")
+                with patch("gateway.events.EVENT_URL", str(server.make_url('/event'))):
+                    await asyncio.to_thread(publisher._post, event())
+                with patch("gateway.events.EVENT_URL", str(server.make_url('/redirect'))):
+                    with self.assertRaises(HTTPError):
+                        await asyncio.to_thread(publisher._post, event())
+        self.assertEqual(proxy_seen, [])
+        self.assertEqual([path for path, _ in origin_seen], ["/event", "/redirect"])
+        self.assertTrue(all(auth == "Bearer synthetic-test-token" for _, auth in origin_seen))
+
 
 class HealthTests(unittest.IsolatedAsyncioTestCase):
     async def test_heartbeat_goes_unhealthy_when_stale_or_worker_fails(self):
@@ -172,6 +202,17 @@ class HealthTests(unittest.IsolatedAsyncioTestCase):
             finally:
                 await reporter.close()
             self.assertFalse(path.exists())
+
+    async def test_health_write_does_not_follow_a_preexisting_temporary_symlink(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "health.json"
+            victim = Path(directory) / "unrelated.txt"
+            victim.write_text("keep me")
+            path.with_suffix(".tmp").symlink_to(victim)
+            reporter = HealthReporter(lambda: {"healthy": True}, path=path)
+            reporter.write()
+            self.assertEqual(victim.read_text(), "keep me")
+            self.assertTrue(check_health(path))
 
     async def test_missing_or_invalid_health_is_not_healthy(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -199,6 +240,69 @@ class ConnectionTests(unittest.IsolatedAsyncioTestCase):
         finally:
             writer.close()
             await writer.wait_closed()
+            await server.close()
+
+    async def test_completed_frames_renew_deadline_for_the_next_partial_frame(self):
+        capture = Mock()
+        server = GatewayServer(options(), capture, frame_timeout=0.12)
+        await server.start(host="127.0.0.1", port=0)
+        reader, writer = await asyncio.open_connection("127.0.0.1", server.server.sockets[0].getsockname()[1])
+        message = forward().encode()
+        split = len(message) // 2
+        try:
+            writer.write(stream_header(TV, GATEWAY))
+            await writer.drain()
+            await asyncio.wait_for(reader.read(4096), 1)
+            writer.write(message[:split])
+            await writer.drain()
+            for _ in range(4):
+                await asyncio.sleep(0.06)
+                writer.write(message[split:] + message[:split])
+                await writer.drain()
+            writer.write(message[split:])
+            await writer.drain()
+            await asyncio.sleep(0.01)
+            self.assertEqual(capture.call_count, 5)
+        finally:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except ConnectionError:
+                pass
+            await server.close()
+
+    async def test_trickling_an_unfinished_frame_cannot_extend_its_deadline(self):
+        capture = Mock()
+        server = GatewayServer(options(), capture, frame_timeout=0.12)
+        await server.start(host="127.0.0.1", port=0)
+        reader, writer = await asyncio.open_connection("127.0.0.1", server.server.sockets[0].getsockname()[1])
+        async def trickle():
+            try:
+                writer.write(b"<message")
+                await writer.drain()
+                for _ in range(20):
+                    await asyncio.sleep(0.03)
+                    writer.write(b" ")
+                    await writer.drain()
+            except ConnectionError:
+                pass
+        task = None
+        try:
+            writer.write(stream_header(TV, GATEWAY))
+            await writer.drain()
+            self.assertTrue(await asyncio.wait_for(reader.read(4096), 1))
+            task = asyncio.create_task(trickle())
+            self.assertEqual(await asyncio.wait_for(reader.read(), 0.3), b"")
+            capture.assert_not_called()
+        finally:
+            if task is not None:
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except ConnectionError:
+                pass
             await server.close()
 
 

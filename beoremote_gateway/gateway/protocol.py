@@ -18,7 +18,7 @@ def capability_hash(capabilities=CAPABILITIES):
     # Native code clones 0x17 bytes of 'client/product//beocore<'. This excludes
     # the final '<', unlike XEP-0115. Verified against the Horizon's mDNS hash.
     value = "client/product//beocore" + "".join(x + "<" for x in sorted(set(capabilities)))
-    return base64.b64encode(hashlib.sha1(value.encode()).digest()).decode()
+    return base64.b64encode(hashlib.sha1(value.encode(), usedforsecurity=False).digest()).decode()
 
 
 def discovery_txt(jid, name):

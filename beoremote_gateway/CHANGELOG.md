@@ -1,3 +1,19 @@
+# 0.5.1
+
+- Explain the original idea: use Home Assistant a bit like BeoLiving Intelligence.
+- Verify the current HA user's administrator rights on the server, using
+  Supervisor's authenticated ingress identity. Missing identity or a failed check
+  denies access. Every write rechecks permissions; reads cache them for 15 seconds.
+- Stop the old receiver if choosing another TV fails. Rebuild an unhealthy
+  receiver when the selected TV is rediscovered, even without Watchdog.
+- Limit the full time for an incomplete XMPP frame, including trickled input.
+- Keep HA event credentials out of environment-configured HTTP proxies.
+- Write settings and health files through exclusive private temporary files.
+  Return a clear error if app storage is unavailable.
+- Update the base image to Debian 13 and remove pip after building. Add dependency
+  auditing and high-severity static checks to CI. Document the review and remaining
+  OS-package findings in the security notes.
+
 # 0.5.0
 
 - Open directly on your saved buttons, with a compact TV status. Search only

@@ -55,15 +55,21 @@ class GatewayServer:
                 LOG.debug("tcp_keepalive_customization_unavailable")
         opened = False
         parser = StreamParser()
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + self.frame_timeout
         try:
             while True:
                 if opened and not parser.incomplete:
                     data = await reader.read(4096)
+                    deadline = loop.time() + self.frame_timeout
                 else:
-                    data = await asyncio.wait_for(reader.read(4096), timeout=self.frame_timeout)
+                    # A trickling peer must not renew the deadline with every byte.
+                    data = await asyncio.wait_for(reader.read(4096), timeout=max(0, deadline - loop.time()))
                 if not data:
                     break
                 for kind, value in parser.feed(data):
+                    if kind in ("open", "stanza"):
+                        deadline = loop.time() + self.frame_timeout
                     if kind == "close":
                         return
                     if kind == "open":

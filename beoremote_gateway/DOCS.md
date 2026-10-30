@@ -1,6 +1,7 @@
-# Beoremote Gateway 0.5.0
+# Beoremote Gateway 0.5.1
 
-Use your Beoremote One's LIGHT buttons for Home Assistant actions. You need
+The idea is to use Home Assistant a bit like BeoLiving Intelligence: your
+Beoremote One's LIGHT buttons run actions for your home. You need
 Home Assistant OS and a paired Beoremote with a Beovision Horizon on the same
 network. Only Horizon has been tested.
 

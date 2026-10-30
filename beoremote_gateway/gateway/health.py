@@ -6,6 +6,7 @@ import logging
 import math
 from pathlib import Path
 import time
+import tempfile
 
 from . import __version__
 
@@ -37,10 +38,17 @@ class HealthReporter:
 
     def write(self):
         state = {**self.snapshot(), "version": __version__, "updated_monotonic": time.monotonic()}
-        temporary = self.path.with_suffix(".tmp")
-        temporary.write_text(json.dumps(state, separators=(",", ":")))
-        temporary.chmod(0o600)
-        temporary.replace(self.path)
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", dir=self.path.parent,
+                                             prefix="." + self.path.name + "-", delete=False) as stream:
+                temporary = Path(stream.name)
+                json.dump(state, stream, separators=(",", ":"))
+            temporary.replace(self.path)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+
 
     async def start(self):
         self.write()

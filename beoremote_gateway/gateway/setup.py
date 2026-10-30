@@ -6,6 +6,7 @@ import logging
 import os
 from pathlib import Path
 import time
+import tempfile
 
 from .autodetect import PRODUCT_JID, discover_devices, route_address
 from .actions import ActionManager, rule_id
@@ -33,13 +34,19 @@ def read_selection(path):
 
 def save_selection(path, selection):
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".tmp")
-    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(descriptor, "w") as stream:
-        json.dump(selection, stream)
-        stream.flush()
-        os.fsync(stream.fileno())
-    temporary.replace(path)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", dir=path.parent,
+                                         prefix="." + path.name + "-", delete=False) as stream:
+            temporary = Path(stream.name)
+            json.dump(selection, stream)
+            stream.flush()
+            os.fsync(stream.fileno())
+        temporary.replace(path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
 
 
 class SetupController:
@@ -120,7 +127,8 @@ class SetupController:
                               horizon_jid=record["jid"], advertise_address=local,
                               publish_ha_events=True)
             options = Options.from_dict(options.as_dict())
-            if self.runtime is None or self.runtime.options != options:
+            if (self.runtime is None or self.runtime.options != options
+                    or not self.runtime.snapshot()["healthy"]):
                 await self._close_runtime()
                 runtime = self.runtime_factory(options)
                 runtime.observer = self.learning.observe
@@ -128,6 +136,7 @@ class SetupController:
                 self.runtime = runtime
             self.state, self.error = "active", ""
         except (OSError, ValueError, RuntimeError) as error:
+            await self._close_runtime()
             self.state, self.error = "error", str(error)
             LOG.warning("tv_setup_failed reason=%s", type(error).__name__)
 

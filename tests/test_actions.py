@@ -303,6 +303,78 @@ class HAClientTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len([path for path, _ in seen if path == "/states"]), 1)
         self.assertTrue(all(auth == "Bearer synthetic-test-token" for _, auth in seen))
 
+    async def test_admin_check_uses_current_core_roles_and_refreshes_writes(self):
+        users = [
+            {"id": "0" * 32, "is_owner": True, "is_active": True, "group_ids": []},
+            {"id": "1" * 32, "is_owner": False, "is_active": True, "group_ids": ["system-admin"]},
+            {"id": "2" * 32, "is_owner": False, "is_active": True, "group_ids": ["system-users"]},
+            {"id": "3" * 32, "is_owner": False, "is_active": False, "group_ids": ["system-admin"]},
+        ]
+        queries = []
+        async def endpoint(request):
+            socket = web.WebSocketResponse()
+            await socket.prepare(request)
+            await socket.send_json({"type": "auth_required"})
+            auth = await socket.receive_json()
+            self.assertEqual(auth, {"type": "auth", "access_token": "synthetic-test-token"})
+            await socket.send_json({"type": "auth_ok"})
+            query = await socket.receive_json()
+            self.assertEqual(query["type"], "config/auth/list")
+            queries.append(query)
+            await socket.send_json({"id": query["id"], "type": "result", "success": True, "result": users})
+            async for _message in socket:
+                pass
+            return socket
+        app = web.Application()
+        app.router.add_get("/websocket", endpoint)
+        async with TestServer(app) as server:
+            with patch("gateway.ha.WS_URL", str(server.make_url('/websocket'))):
+                now = [0]
+                ha = HomeAssistant("synthetic-test-token", clock=lambda: now[0])
+                self.assertTrue(await ha.is_admin("0" * 32))
+                self.assertTrue(await ha.is_admin("1" * 32))
+                self.assertFalse(await ha.is_admin("2" * 32))
+                self.assertFalse(await ha.is_admin("3" * 32))
+                self.assertFalse(await ha.is_admin("4" * 32))
+                self.assertFalse(await ha.is_admin("invalid"))
+                self.assertFalse(await ha.is_admin(None))
+                users[1]["group_ids"] = ["system-users"]
+                self.assertTrue(await ha.is_admin("1" * 32))  # Reads have a short cache.
+                self.assertFalse(await ha.is_admin("1" * 32, fresh=True))
+                users[1]["group_ids"] = ["system-admin"]
+                now[0] = 16
+                self.assertTrue(await ha.is_admin("1" * 32))
+                self.assertEqual(len(queries), 7)
+
+    async def test_admin_check_fails_closed_on_redirects_and_invalid_core_reply(self):
+        unexpected = []
+        async def redirect(_request):
+            raise web.HTTPFound('/unexpected')
+        async def target(request):
+            unexpected.append(True)
+            return web.Response()
+        async def invalid(request):
+            socket = web.WebSocketResponse()
+            await socket.prepare(request)
+            await socket.send_json({"type": "auth_required"})
+            await socket.receive_json()
+            await socket.send_json({"type": "auth_ok"})
+            await socket.receive_json()
+            await socket.send_json({"id": 1, "type": "result", "success": False})
+            async for _message in socket:
+                pass
+            return socket
+        app = web.Application()
+        app.router.add_get('/redirect',redirect)
+        app.router.add_get('/unexpected',target)
+        app.router.add_get('/invalid',invalid)
+        async with TestServer(app) as server:
+            for path in ('/redirect','/invalid'):
+                with patch('gateway.ha.WS_URL',str(server.make_url(path))):
+                    with self.assertRaises(HAError):
+                        await HomeAssistant('synthetic-test-token').is_admin('0' * 32)
+        self.assertEqual(unexpected, [])
+
 
 class ActionWebTests(test_setup.SetupWebTests):
     async def test_learn_save_edit_and_manage_through_ingress(self):

@@ -1,13 +1,16 @@
 """Small setup UI behind Home Assistant ingress. No public configuration endpoint."""
 import asyncio
 import json
+import logging
 import os
 from pathlib import Path
 import secrets
 
 from aiohttp import ClientError, ClientSession, ClientTimeout, web
 
-from .ha import HAError
+from .ha import HAError, HomeAssistant, USER_ID
+
+LOG = logging.getLogger(__name__)
 
 INGRESS_PEER = "172.30.32.2"
 
@@ -33,7 +36,8 @@ async def ingress_port():
         raise ValueError("Cannot read the setup page port from Supervisor; restart the app and check its log") from None
 
 
-def make_app(controller, allowed_peers=frozenset({INGRESS_PEER})):
+def make_app(controller, allowed_peers=frozenset({INGRESS_PEER}), admin_check=None):
+    check_admin = admin_check or HomeAssistant().is_admin
     csrf = secrets.token_urlsafe(32)
     nonce = secrets.token_urlsafe(24)
 
@@ -48,11 +52,19 @@ def make_app(controller, allowed_peers=frozenset({INGRESS_PEER})):
             if request.content_type != "application/json":
                 raise web.HTTPBadRequest(text="Expected JSON")
         try:
+            # Supervisor replaces this header with its authenticated session user.
+            # panel_admin controls navigation; it is not API authorization.
+            user_id = request.headers.get("X-Remote-User-Id", "")
+            if not USER_ID.fullmatch(user_id) or not await check_admin(user_id, fresh=request.method not in ("GET", "HEAD")):
+                raise web.HTTPForbidden(text="Open this app as a Home Assistant administrator.")
             response = await handler(request)
         except ValueError as error:
             response = web.json_response({"error": str(error)}, status=400)
         except HAError as error:
             response = web.json_response({"error": str(error)}, status=503)
+        except OSError as error:
+            LOG.warning("setup_request_failed reason=%s", type(error).__name__)
+            response = web.json_response({"error": "Could not save settings. Check app storage and try again."}, status=503)
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
         return response
@@ -61,7 +73,9 @@ def make_app(controller, allowed_peers=frozenset({INGRESS_PEER})):
 
     async def index(request):
         path = request.headers.get("X-Ingress-Path", "")
-        if not path.startswith("/") or path.startswith("//"):
+        if (not path.startswith("/") or path.startswith("//")
+                or any(char in path for char in "\\?#")
+                or any(ord(char) < 33 for char in path)):
             path = ""
         page = Path(__file__).with_name("setup.html").read_text()
         # JSON strings embedded in script must not be able to close the script element.

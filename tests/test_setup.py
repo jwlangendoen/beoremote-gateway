@@ -13,6 +13,7 @@ from zeroconf import ServiceInfo
 
 from gateway.autodetect import device_record, discover_devices, route_address
 from gateway.config import Options
+from gateway.ha import HAError
 from gateway.runtime import GatewayRuntime
 from gateway.setup import SetupController, read_selection, save_selection
 from gateway.web import ingress_port, make_app
@@ -65,6 +66,16 @@ class AutodetectionTests(unittest.TestCase):
         connection.connect.assert_called_once_with(("192.0.2.10", 9))
         connection.send.assert_not_called()
         connection.sendto.assert_not_called()
+
+    def test_selection_write_does_not_follow_a_preexisting_temporary_symlink(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "selection.json"
+            victim = Path(directory) / "unrelated.txt"
+            victim.write_text("keep me")
+            path.with_suffix(".tmp").symlink_to(victim)
+            save_selection(path, {"jid": TV, "name": "TV", "enabled": True})
+            self.assertEqual(victim.read_text(), "keep me")
+            self.assertEqual(read_selection(path)["jid"], TV)
 
     def test_selection_file_rejects_invalid_values(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -272,11 +283,38 @@ class ControllerTests(SetupFixture, unittest.IsolatedAsyncioTestCase):
         await self.controller.reconcile()
         self.assertEqual(self.controller.state, "active")
 
+    async def test_failed_switch_stops_old_tv_instead_of_leaving_it_active(self):
+        await self.controller.scan()
+        await self.controller.select(TV)
+        self.route.side_effect = OSError("No route")
+        await self.controller.select(OTHER)
+        self.assertEqual(self.controller.selection["jid"], OTHER)
+        self.assertEqual(self.controller.state, "error")
+        self.assertIsNone(self.controller.runtime)
+        self.assertEqual(self.events[-1], ("close", "192.0.2.10"))
+        with self.assertRaises(ValueError):
+            self.controller.action_tv()
+        self.route.side_effect = None
+        self.route.return_value = ("192.0.2.11", "192.0.2.20")
+        await self.controller.reconcile()
+        self.assertEqual(self.controller.runtime.options.horizon_jid, OTHER)
+
+    async def test_unhealthy_runtime_is_rebuilt_without_watchdog(self):
+        await self.controller.scan()
+        await self.controller.select(TV)
+        old = self.controller.runtime
+        old.snapshot = lambda: {"healthy": False}
+        await self.controller.reconcile()
+        self.assertIsNot(self.controller.runtime, old)
+        self.assertEqual(self.events[-2:], [("close", "192.0.2.10"), ("start", "192.0.2.10")])
+
 
 class SetupWebTests(SetupFixture, unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         await super().asyncSetUp()
-        self.client = TestClient(TestServer(make_app(self.controller, allowed_peers={"127.0.0.1"})))
+        self.admin_check = AsyncMock(return_value=True)
+        self.client = TestClient(TestServer(make_app(self.controller, allowed_peers={"127.0.0.1"}, admin_check=self.admin_check)))
+        self.client.session.headers["X-Remote-User-Id"] = "0123456789abcdef" * 2
         await self.client.start_server()
         response = await self.client.get("/", headers={"X-Ingress-Path": "/api/hassio_ingress/test-session"})
         self.page = await response.text()
@@ -286,6 +324,25 @@ class SetupWebTests(SetupFixture, unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         await self.client.close()
         await super().asyncTearDown()
+
+    async def test_nonadmin_and_missing_identity_cannot_read_or_change_settings(self):
+        self.admin_check.return_value = False
+        response = await self.client.get("/")
+        self.assertEqual(response.status, 403)
+        response = await self.client.post("/api/learning/start", json={}, headers=self.headers)
+        self.assertEqual(response.status, 403)
+        self.admin_check.assert_awaited_with("0123456789abcdef" * 2, fresh=True)
+        self.assertEqual(self.controller.learning.status()["state"], "idle")
+        self.admin_check.reset_mock()
+        response = await self.client.get("/api/status", headers={"X-Remote-User-Id": "", "X-Remote-User-Name": "admin"})
+        self.assertEqual(response.status, 403)
+        self.admin_check.assert_not_awaited()
+
+    async def test_permission_service_failure_denies_access(self):
+        self.admin_check.side_effect = HAError("Cannot verify administrator access.")
+        response = await self.client.post("/api/pause", json={}, headers=self.headers)
+        self.assertEqual(response.status, 503)
+        self.assertIsNone(self.controller.selection)
 
     async def test_setup_flow_discovers_selects_and_pauses_from_ingress(self):
         response = await self.client.get("/api/devices")
@@ -313,6 +370,24 @@ class SetupWebTests(SetupFixture, unittest.IsolatedAsyncioTestCase):
         response = await self.client.get("/")
         self.assertIn("script-src 'nonce-", response.headers["Content-Security-Policy"])
         self.assertEqual(response.headers["Cache-Control"], "no-store")
+
+    async def test_bad_prefix_and_script_text_cannot_escape_ingress_base(self):
+        for prefix in ("//other.invalid", "/\\other.invalid", "/prefix?query", "/prefix#fragment"):
+            response = await self.client.get("/", headers={"X-Ingress-Path": prefix})
+            self.assertIn('const base = new URL("/",', await response.text())
+        response = await self.client.get("/", headers={"X-Ingress-Path": '/</script><script>alert(1)</script>'})
+        page = await response.text()
+        self.assertNotIn('</script><script>', page)
+        self.assertIn("script-src 'nonce-", response.headers['Content-Security-Policy'])
+
+    async def test_storage_failure_keeps_previous_selection_and_returns_no_private_path(self):
+        await self.controller.scan()
+        with patch("gateway.setup.save_selection", side_effect=OSError("synthetic private storage detail")):
+            response = await self.client.post("/api/select", json={"jid": TV}, headers=self.headers)
+        self.assertEqual(response.status, 503)
+        self.assertNotIn("synthetic private storage detail", await response.text())
+        self.assertIsNone(self.controller.selection)
+        self.assertIsNone(self.controller.runtime)
 
     async def test_direct_lan_access_is_denied_even_with_spoofed_forwarding_header(self):
         client = TestClient(TestServer(make_app(self.controller)))

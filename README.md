@@ -1,8 +1,9 @@
 # Beoremote Gateway
 
-I wanted to control my lights with the Beoremote One I already use for my TV.
-The LIGHT menu was there, so it seemed like a nice thing to make work with Home
-Assistant. At home I use it to switch between lighting scenes.
+I wanted to use Home Assistant a bit like BeoLiving Intelligence: control the
+rest of the house with the Beoremote One I already have for the TV.
+This started with the LIGHT menu. At home I use it to switch between lighting
+scenes, but the buttons can run other Home Assistant actions as well.
 
 This runs as a Home Assistant app. Choose your TV, press a LIGHT button and pick
 a scene, lights or a script. You can also choose any action in the normal
@@ -35,7 +36,8 @@ For newer Mozart products, the [official B&O integration](https://www.home-assis
 may already do what you need.
 
 [Remote names](docs/REMOTE.md) · [Advanced settings](docs/REFERENCE.md) ·
-[Testing notes](docs/TESTING.md) · [Development](docs/RELEASING.md)
+[Testing notes](docs/TESTING.md) · [Security](docs/SECURITY.md) ·
+[Development](docs/RELEASING.md)
 
 Built with AI assistance and tested on my own Horizon. Independent project,
 with no affiliation to Bang & Olufsen.

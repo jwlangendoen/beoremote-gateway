@@ -96,6 +96,24 @@ The installed 0.4.2 app had separately received a physical LIGHT function 11 pre
 during the UX review, without saving a new mapping. A complete physical 0.5.0
 save-and-run check through Supervisor ingress remains to be done.
 
+## Security and failure handling (0.5.1)
+
+On 30 October 2026, 100 tests passed locally on Python 3.12. New checks cover
+server-side administrator authorization, immediate write denial after role
+revocation, failed access lookups, redirect rejection, event credentials bypassing
+HTTP proxies, fixed frame deadlines and normal fragmented streams, failure when
+switching TVs, unhealthy worker recovery, temporary-file symlinks and storage errors.
+
+An isolated official HA Core 2026.10.4 with external networking disabled verified
+real owner/admin roles, rejection of ordinary and unknown users, and rejection of
+a write after an admin was demoted while read access was cached. The ingress
+proxy's header contract was checked against Supervisor 2026.10.0 source; the
+fixture uses that header with a local proxy boundary, not a full HA OS Supervisor.
+
+See [the security review](SECURITY.md) for dependency scans, OS-package findings,
+trust boundaries and remaining limits. No household equipment was attacked or
+reconfigured for these tests.
+
 ## Still to try
 
 - A full 0.5.0 setup through HA ingress and the repository installation, including

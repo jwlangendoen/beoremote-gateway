@@ -1,7 +1,7 @@
 # Beoremote Gateway
 
-Use the LIGHT buttons on your Beoremote One for Home Assistant actions through
-your Beovision Horizon.
+Use Home Assistant a bit like BeoLiving Intelligence: control your home with
+the LIGHT buttons on your Beoremote One, through your Beovision Horizon.
 
 Start the app and click **Open Web UI** to choose your TV and add buttons.
 Enable **Show in sidebar** for direct access next time.

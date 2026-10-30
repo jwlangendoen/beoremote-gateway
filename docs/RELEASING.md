@@ -16,7 +16,7 @@ Run the checks, then make a source archive:
 ```sh
 .venv/bin/python tools/check_release.py
 PYTHONPATH=beoremote_gateway .venv/bin/python -m unittest discover -s tests -v
-.venv/bin/python tools/export_release.py .release/beoremote-gateway-0.5.0-source.zip
+.venv/bin/python tools/export_release.py .release/beoremote-gateway-0.5.1-source.zip
 ```
 
 The export includes the source, tests and documentation needed to build the app.
@@ -27,10 +27,10 @@ The export script won't overwrite an existing archive.
 ## Check the containers
 
 ```sh
-docker build --platform linux/arm64 --build-arg BUILD_ARCH=aarch64 -t beoremote-gateway:0.5.0-arm64 beoremote_gateway
-bash tools/container_check.sh beoremote-gateway:0.5.0-arm64
-docker build --platform linux/amd64 --build-arg BUILD_ARCH=amd64 -t beoremote-gateway:0.5.0-amd64 beoremote_gateway
-bash tools/container_check.sh beoremote-gateway:0.5.0-amd64
+docker build --platform linux/arm64 --build-arg BUILD_ARCH=aarch64 -t beoremote-gateway:0.5.1-arm64 beoremote_gateway
+bash tools/container_check.sh beoremote-gateway:0.5.1-arm64
+docker build --platform linux/amd64 --build-arg BUILD_ARCH=amd64 -t beoremote-gateway:0.5.1-amd64 beoremote_gateway
+bash tools/container_check.sh beoremote-gateway:0.5.1-amd64
 ```
 
 The container check starts the app with empty settings and external networking off.
@@ -46,9 +46,14 @@ press again. Also check change, pause, enable and removal. Test the optional
 blueprint separately in Dry run. Record the TV model and
 firmware in [testing notes](TESTING.md).
 
+Run `pip-audit -r requirements-dev.txt` and
+`bandit -r beoremote_gateway/gateway --severity-level high` with the pinned tools
+from CI. Review a current container vulnerability scan as described in
+[security notes](SECURITY.md); distinguish OS-package reports from app dependencies.
+
 Keep the app's version, Python version string and Docker label in sync, and add
 user-facing changes to the changelog. Early releases use `stage: experimental`
-and a GitHub pre-release tag, such as `v0.5.0`.
+and a GitHub pre-release tag, such as `v0.5.1`.
 
 Keep the repository URL stable: Home Assistant uses it to identify the app.
 A local-app installation and a repository installation are separate installs.

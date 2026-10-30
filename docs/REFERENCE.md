@@ -1,6 +1,7 @@
 # Advanced settings and troubleshooting
 
 For normal setup, use [the short guide](../beoremote_gateway/DOCS.md).
+[Security model and review](SECURITY.md) covers permissions and scan results.
 The app's Configuration tab is for overrides; TV selection and LIGHT actions
 are set up in **Open Web UI**.
 
@@ -94,7 +95,9 @@ that access to read scenes, lights and scripts, save its own automations and ena
 them through the same Core API used by the HA automation editor. Protection mode
 can stay enabled. No host files or Docker socket are mounted. The setup page is
 served through HA ingress; direct LAN requests are rejected. It only accepts the
-Supervisor proxy as its TCP peer, and changes require the setup page token. HA
+Supervisor proxy as its TCP peer. It verifies the authenticated ingress user
+is an active HA administrator; writes recheck permissions and require the setup
+page token. Missing identity or unavailable permission checks deny access. HA
 allocates a free port for this page; the app reads it from its own Supervisor info
 endpoint without requesting additional Supervisor privileges.
 

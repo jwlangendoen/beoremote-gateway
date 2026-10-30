@@ -24,7 +24,7 @@ class EventPublisher:
         self.max_age = max_age
         self.queue = asyncio.Queue(maxsize=queue_size)
         self.worker = None
-        self.opener = urllib.request.build_opener(NoRedirect)
+        self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect)
         self.published = self.failed = self.dropped = self.expired = 0
         self.last_result = "idle"
         self.last_warning = float("-inf")
