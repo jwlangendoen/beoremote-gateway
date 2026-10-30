@@ -1,0 +1,40 @@
+{
+  "configuration": {
+    "mode": {
+      "name": "Modus",
+      "description": "Gebruik auto en Open Web UI voor het instellen. Handmatige modi blijven beschikbaar."
+    },
+    "horizon_address": {
+      "name": "Tv-adres (handmatig)",
+      "description": "Leeg laten in de modus auto."
+    },
+    "horizon_jid": {
+      "name": "Tv-identiteit (handmatig)",
+      "description": "Leeg laten in de modus auto; de instelpagina zoekt deze op."
+    },
+    "advertise_address": {
+      "name": "LAN-adres gateway (handmatig)",
+      "description": "Leeg laten in de modus auto; het juiste LAN-adres wordt gevonden."
+    },
+    "gateway_name": {
+      "name": "Naam in het tv-menu",
+      "description": "Kies na het instellen deze naam in het gatewaymenu van de Horizon."
+    },
+    "gateway_jid": {
+      "name": "Gateway-identiteit (geavanceerd)",
+      "description": "Behoud de standaardwaarde, tenzij je meerdere gateways gebruikt."
+    },
+    "xmpp_port": {
+      "name": "Verbindingspoort tv (geavanceerd)",
+      "description": "Standaard 5222. Stop een oudere gateway voordat je dezelfde poort gebruikt."
+    },
+    "publish_ha_events": {
+      "name": "Events publiceren (handmatig)",
+      "description": "Automatisch instellen schakelt events in nadat je een tv kiest."
+    },
+    "log_level": {
+      "name": "Logniveau",
+      "description": "Gebruik normaal info. Debug bevat apparaatidentiteiten."
+    }
+  }
+}

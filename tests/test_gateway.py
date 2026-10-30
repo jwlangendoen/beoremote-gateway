@@ -122,7 +122,7 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
     async def test_disabled_mode_opens_no_server_or_discovery(self):
         stop = asyncio.Event()
         stop.set()
-        with patch("gateway.__main__.GatewayServer") as server, patch("gateway.__main__.Announcer") as announcer:
+        with patch("gateway.runtime.GatewayServer") as server, patch("gateway.runtime.Announcer") as announcer:
             await run(Options.from_dict({}), stop)
         server.assert_not_called()
         announcer.assert_not_called()

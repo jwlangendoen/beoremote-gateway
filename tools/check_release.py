@@ -34,7 +34,9 @@ def check():
     assert docker_version == config["version"], "Docker version differs"
     assert f'# Beoremote Gateway {config["version"]}' in (app / "DOCS.md").read_text()
     defaults = Options.from_dict(config["options"])
-    assert defaults.mode == "disabled" and defaults.publish_ha_events is False
+    assert defaults.mode == "auto" and defaults.publish_ha_events is False
+    assert config["ingress"] is True and config["ingress_port"] == 0
+    assert not any(defaults.as_dict()[key] for key in ("horizon_address", "horizon_jid", "advertise_address"))
     assert set(config["options"]) == set(config["schema"])
     assert config["stage"] == "experimental"
     assert config["arch"] == ["aarch64", "amd64"]
@@ -52,7 +54,7 @@ def check():
         raw = bytes.fromhex(choice["value"])
         assert len(raw) == 13 and raw[1] == 27 and raw[4] != 126
     hashes = manifest()
-    print(f'Release {config["version"]}: {len(hashes)} public files, metadata and inactive defaults valid')
+    print(f'Release {config["version"]}: {len(hashes)} public files, metadata and setup defaults valid')
 
 
 if __name__ == "__main__":

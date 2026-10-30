@@ -8,6 +8,7 @@ retain their own licenses and notices:
 | Python | 3.13 in the container | https://www.python.org/psf/license/ |
 | zeroconf | 0.151.5 | https://github.com/python-zeroconf/python-zeroconf |
 | ifaddr | 0.2.0 | https://github.com/ifaddr/ifaddr |
+| aiohttp | 3.14.5 | https://github.com/aio-libs/aiohttp |
 
 The official `python:3.13-slim-bookworm` base image also includes Debian packages
 with their own notices. Installed dependency packages retain upstream license

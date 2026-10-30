@@ -1,3 +1,16 @@
+# 0.3.0
+
+- Set up the gateway inside Home Assistant with **Open Web UI**: find B&O products
+  on the LAN and explicitly choose your TV.
+- TV identity and gateway LAN address are detected automatically. The chosen
+  identity is remembered and rediscovered after restarts and IP changes.
+- Added connection status, Stop gateway and a copy button for the blueprint identity.
+- Kept manual configurations and disabled mode for existing installs. Switch Mode
+  to auto once to use the setup page after updating from 0.2.2.
+- Added English/Dutch option labels and an ingress-only setup interface.
+- Expanded the remote naming guide: show/add the separate Beovision IR profile,
+  edit the LIGHT functions there, then return to the Bluetooth Horizon profile.
+
 # 0.2.2 — first release candidate
 
 - English setup guide and an installation button for the app repository.

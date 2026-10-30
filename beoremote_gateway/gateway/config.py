@@ -36,7 +36,7 @@ class Options:
         if not isinstance(data, dict):
             raise ValueError("Options must be a JSON object")
         options = cls(**data)
-        if options.mode not in ("disabled", "listen", "advertise"):
+        if options.mode not in ("auto", "disabled", "listen", "advertise"):
             raise ValueError("Unknown mode")
         if options.log_level not in ("debug", "info", "warning", "error"):
             raise ValueError("Unknown log level")
@@ -49,7 +49,7 @@ class Options:
         if not options.gateway_name.strip() or any(ord(char) < 32 for char in options.gateway_name):
             raise ValueError("gateway_name must contain visible text without control characters")
         validate_jid(options.gateway_jid)
-        if options.mode != "disabled":
+        if options.mode in ("listen", "advertise"):
             validate_ipv4(options.horizon_address)
             validate_jid(options.horizon_jid)
             if options.horizon_jid == options.gateway_jid:

@@ -14,7 +14,8 @@ def package(destination):
         for path in sorted(app.rglob("*")):
             relative = path.relative_to(app)
             allowed = ((len(relative.parts) == 1 and path.name in root_files)
-                       or (relative.parts[0] == "gateway" and path.suffix == ".py"))
+                       or (relative.parts[0] == "gateway" and path.suffix in (".py", ".html"))
+                       or (len(relative.parts) == 2 and relative.parts[0] == "translations" and path.name in ("en.yaml", "nl.yaml")))
             if (not allowed or path.is_symlink() or not path.is_file()
                     or "__pycache__" in path.parts or path.name.startswith("._")):
                 continue

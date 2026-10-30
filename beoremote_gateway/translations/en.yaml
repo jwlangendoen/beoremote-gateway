@@ -1,0 +1,40 @@
+{
+  "configuration": {
+    "mode": {
+      "name": "Mode",
+      "description": "Use auto and Open Web UI for setup. Existing manual modes remain available."
+    },
+    "horizon_address": {
+      "name": "TV address (manual)",
+      "description": "Leave empty in auto mode."
+    },
+    "horizon_jid": {
+      "name": "TV identity (manual)",
+      "description": "Leave empty in auto mode; the setup page discovers it."
+    },
+    "advertise_address": {
+      "name": "Gateway LAN address (manual)",
+      "description": "Leave empty in auto mode; the outgoing LAN address is detected."
+    },
+    "gateway_name": {
+      "name": "Name in the TV menu",
+      "description": "Select this name in the Horizon gateway menu after setup."
+    },
+    "gateway_jid": {
+      "name": "Gateway identity (advanced)",
+      "description": "Keep the default unless running separate gateways."
+    },
+    "xmpp_port": {
+      "name": "TV connection port (advanced)",
+      "description": "Default 5222. Stop an older gateway before using the same port."
+    },
+    "publish_ha_events": {
+      "name": "Publish events (manual)",
+      "description": "Automatic setup enables events after you choose a TV."
+    },
+    "log_level": {
+      "name": "Log level",
+      "description": "Use info for normal operation. Debug includes device identities."
+    }
+  }
+}

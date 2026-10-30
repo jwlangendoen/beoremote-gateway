@@ -38,12 +38,19 @@ and both devices on the same trusted local IPv4 network.
 [![Add repository to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fjwlangendoen%2Fbeoremote-gateway)
 
 1. Add the repository and install **Beoremote Gateway** from the app store.
-2. Follow the [setup guide](beoremote_gateway/DOCS.md) to connect your TV.
+2. Start the app, click **Open Web UI**, and choose your TV from the discovered
+   products. The [setup guide](beoremote_gateway/DOCS.md) covers the TV menu step.
 3. Use the [blueprint](blueprints/automation/beoremote_light_action.yaml) to choose
    a LIGHT button and what it should do. Start in Dry run and check the trace first.
 
-The app starts disabled so you can configure it before it begins receiving
-commands. Setup, button mappings and troubleshooting are in the guide above.
+The gateway starts receiving after you choose a TV. No IP addresses or long device
+identities to type. If you are upgrading from 0.2.2, set **Mode** to **auto** once
+and restart. Existing manual configurations are preserved.
+
+Want your own names in the LIGHT menu? On the Horizon you first need to show or
+add a separate Beovision **infrared** profile on the remote, then use its LIGHT
+editor. The [remote naming steps](beoremote_gateway/DOCS.md#give-the-light-functions-your-own-names)
+walk through that workaround.
 
 ## Want to work on it?
 

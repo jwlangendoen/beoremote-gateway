@@ -19,11 +19,14 @@ FIXED = (
     "tools/check_release.py", "tools/package.py", "tools/discover.py",
     "tools/release_files.py", "tools/export_release.py", "tools/container_check.sh",
     "tests/test_gateway.py", "tests/test_discovery.py", "tests/test_reliability.py",
-    "tests/test_public_release.py",
+    "tests/test_public_release.py", "tests/test_setup.py",
+    "beoremote_gateway/gateway/setup.html",
+    "beoremote_gateway/translations/en.yaml", "beoremote_gateway/translations/nl.yaml",
 )
 MODULES = (
     "__init__.py", "__main__.py", "buttons.py", "config.py", "discovery.py",
     "events.py", "health.py", "protocol.py", "server.py", "xmlstream.py",
+    "autodetect.py", "runtime.py", "setup.py", "web.py",
 )
 
 
@@ -51,7 +54,7 @@ def privacy_issues(name, content):
             address = ipaddress.IPv4Address(value)
         except ValueError:
             continue
-        if any(address in network for network in (
+        if str(address) != "172.30.32.2" and any(address in network for network in (
             ipaddress.IPv4Network((0x0A000000, 8)), ipaddress.IPv4Network((0xAC100000, 12)),
             ipaddress.IPv4Network((0xC0A80000, 16)))):
             issues.append(f"{name}: private LAN address")
