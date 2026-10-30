@@ -1,0 +1,18 @@
+.venv/
+.local/
+__pycache__/
+*.py[cod]
+.DS_Store
+options.local.json
+*.log
+captures/
+*.tar.gz
+token*
+.release/
+dist/
+# Household configuration and historical installation evidence stay private.
+home_assistant/
+docs/verified-behaviour.json
+docs/living-room-scenes.json
+docs/hue-tap-dial-verification.json
+

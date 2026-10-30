@@ -1,0 +1,76 @@
+blueprint:
+  name: Beoremote Gateway · LIGHT button action
+  description: >-
+    Run your own action for one observed LIGHT button from Beoremote Gateway.
+    Tested gateway hardware: Beovision Horizon only. Dry run is enabled initially;
+    press the real button and inspect the trace before enabling the action.
+    Create one automation per button. Manual Run actions is intentionally ignored.
+  domain: automation
+  source_url: https://github.com/jwlangendoen/beoremote-gateway/blob/main/blueprints/automation/beoremote_light_action.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+  input:
+    tv_jid:
+      name: TV identity
+      description: Exact peer_jid from a received beoremote_telegram event.
+      selector:
+        text:
+    light_payload:
+      name: LIGHT button
+      description: >-
+        Match the data_hex you observed. Function 1 and digit key 1 are different.
+        Labels can be renamed on the remote. Releases are excluded.
+      default: "001b00000f0000000000000000"
+      selector:
+        select:
+          mode: dropdown
+          options:
+            - label: "LIGHT function 1 (initially Ochtend; command 15)"
+              value: "001b00000f0000000000000000"
+            - label: "LIGHT function 11 (initially Home; command 37)"
+              value: "001b0000250000000000000000"
+            - label: "LIGHT 0 digit key (command 0)"
+              value: "001b0000000000000000000000"
+            - label: "LIGHT 1 digit key (command 1; may repeat)"
+              value: "001b0000010000000000000000"
+    dry_run:
+      name: Dry run
+      description: Stop in the trace before your action. Turn off after checking the real button.
+      default: true
+      selector:
+        boolean:
+    button_action:
+      name: Action
+      description: For example, activate a scene. Avoid long delays.
+      default: []
+      selector:
+        action:
+
+mode: queued
+max: 5
+max_exceeded: silent
+variables:
+  dry_run: !input dry_run
+triggers:
+  - trigger: event
+    event_type: beoremote_telegram
+    event_data:
+      peer_jid: !input tv_jid
+      originator: "0"
+      data_hex: !input light_payload
+conditions: []
+actions:
+  - alias: Ignore manual runs and expired or invalid remote events
+    condition: template
+    value_template: >-
+      {{ trigger is defined and trigger.platform == 'event'
+         and trigger.event is defined
+         and 0 <= (now().timestamp() -
+           (trigger.event.data.get('received_at', 0) | float(0))) < 2 }}
+  - alias: Inspect this trace before enabling your action
+    if:
+      - condition: template
+        value_template: "{{ dry_run }}"
+    then:
+      - stop: "Dry run: a matching fresh remote event was received; no action executed."
+  - sequence: !input button_action

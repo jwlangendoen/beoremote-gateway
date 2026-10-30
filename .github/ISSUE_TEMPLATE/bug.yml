@@ -1,0 +1,24 @@
+name: Something isn't working
+description: Tell me what happened and how to reproduce it.
+title: "[Bug]: "
+body:
+  - type: input
+    id: versions
+    attributes:
+      label: Your setup
+      description: Gateway and HA versions, TV model and firmware. Leave out serial numbers and device identities.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: What happened?
+      description: What did you try, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Any useful logs?
+      description: Remove tokens, serial numbers, device identities and private network addresses before sharing.
+      render: text

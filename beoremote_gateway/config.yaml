@@ -1,0 +1,36 @@
+name: Beoremote Gateway
+description: Use Beoremote One LIGHT functions in Home Assistant through Beovision Horizon
+version: "0.2.2"
+slug: beoremote_gateway
+url: https://github.com/jwlangendoen/beoremote-gateway
+arch:
+  - aarch64
+  - amd64
+startup: application
+boot: auto
+init: true
+timeout: 15
+stage: experimental
+host_network: true
+homeassistant_api: true
+options:
+  mode: disabled
+  horizon_address: ""
+  horizon_jid: ""
+  advertise_address: ""
+  gateway_name: Home Assistant Licht
+  gateway_jid: homeassistant.light.gateway@products.bang-olufsen.com
+  xmpp_port: 5222
+  publish_ha_events: false
+  log_level: info
+schema:
+  mode: list(disabled|listen|advertise)
+  horizon_address: str
+  horizon_jid: str
+  advertise_address: str
+  gateway_name: str(1,64)
+  gateway_jid: str(1,120)
+  xmpp_port: port
+  publish_ha_events: bool
+  log_level: list(debug|info|warning|error)
+

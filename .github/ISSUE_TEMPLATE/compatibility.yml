@@ -1,0 +1,35 @@
+name: Tried another setup?
+description: Let me know what worked with your TV and remote.
+title: "[Compatibility]: "
+body:
+  - type: input
+    id: model
+    attributes:
+      label: Which TV and firmware?
+      description: Include the model and generation. Leave out serial numbers and device identities.
+    validations:
+      required: true
+  - type: input
+    id: setup
+    attributes:
+      label: The rest of your setup
+      description: Remote type, HA version and host, and gateway version.
+    validations:
+      required: true
+  - type: checkboxes
+    id: observed
+    attributes:
+      label: What worked?
+      options:
+        - label: The gateway appeared in the TV menu
+        - label: The TV connected to the gateway
+        - label: LIGHT presses appeared as HA events
+        - label: My automation ran its action
+        - label: It worked while the TV was in standby
+  - type: textarea
+    id: details
+    attributes:
+      label: Anything else worth knowing?
+      description: Which buttons did you try? Share any problems too. Redact private addresses, device identities and tokens from logs.
+    validations:
+      required: true

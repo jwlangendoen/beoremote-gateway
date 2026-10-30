@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-14",
+  "provenance": "Payload values logged from real Horizon Forward messages; button and scene labels confirmed by the user. This is not a raw XML packet capture.",
+  "originator": "0",
+  "timestamp": 1,
+  "samples": [
+    {"label": "LIGHT 1", "phase": "press", "command_byte": 1, "data_base64": "ABsAAAEAAAAAAAAAAA==", "data_hex": "001b0000010000000000000000"},
+    {"label": "LIGHT 1", "phase": "release", "command_byte": 126, "data_base64": "ABsAAH4AAAAAAAAAAA==", "data_hex": "001b00007e0000000000000000"},
+    {"label": "LIGHT 0", "phase": "press", "command_byte": 0, "data_base64": "ABsAAAAAAAAAAAAAAA==", "data_hex": "001b0000000000000000000000"},
+    {"label": "LIGHT 0", "phase": "release", "command_byte": 126, "data_base64": "ABsAAH4AAAAAAAAAAA==", "data_hex": "001b00007e0000000000000000"},
+    {"label": "Ochtend", "phase": "press", "command_byte": 15, "data_base64": "ABsAAA8AAAAAAAAAAA==", "data_hex": "001b00000f0000000000000000"},
+    {"label": "Ochtend", "phase": "release", "command_byte": 126, "data_base64": "ABsAAH4AAAAAAAAAAA==", "data_hex": "001b00007e0000000000000000"},
+    {"label": "Home", "phase": "press", "command_byte": 37, "data_base64": "ABsAACUAAAAAAAAAAA==", "data_hex": "001b0000250000000000000000"},
+    {"label": "Home", "phase": "release", "command_byte": 126, "data_base64": "ABsAAH4AAAAAAAAAAA==", "data_hex": "001b00007e0000000000000000"}
+  ]
+}
