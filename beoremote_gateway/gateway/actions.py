@@ -8,8 +8,13 @@ from .learning import light_press
 
 MARKER = "Managed by Beoremote Gateway."
 RULE = re.compile(r"beoremote_gateway_[0-9a-f]{20}")
-ENTITY = re.compile(r"(?:scene|light)\.[a-z0-9_]+")
-FRESH = "{{ trigger is defined and trigger.platform == 'event' and trigger.event is defined and 0 <= (now().timestamp() - (trigger.event.data.get('received_at', 0) | float(0))) < 2 }}"
+ENTITY = re.compile(r"(?:scene|light|script)\.[a-z0-9_]+")
+GROUPS = {"scene": "scenes", "light_off": "lights", "script": "scripts"}
+SERVICES = {"scene": "scene.turn_on", "light_off": "light.turn_off", "script": "script.turn_on"}
+LEGACY_FRESH = "{{ trigger is defined and trigger.platform == 'event' and trigger.event is defined and 0 <= (now().timestamp() - (trigger.event.data.get('received_at', 0) | float(0))) < 2 }}"
+FRESH = "{{ trigger is defined and trigger.platform is defined and (trigger.platform != 'event' or (trigger.event is defined and ((trigger.event.event_type is defined and trigger.event.event_type != 'beoremote_telegram') or 0 <= (now().timestamp() - (trigger.event.data.get('received_at', 0) | float(0))) < 2))) }}"
+GUARD = {"alias": "Ignore delayed remote presses (manual tests allowed)",
+         "condition": "template", "value_template": FRESH}
 
 
 def rule_id(event):
@@ -24,44 +29,66 @@ def make_rule(event, name, kind, target):
     if (not isinstance(name, str) or not 1 <= len(name.strip()) <= 64
             or any(ord(char) < 32 for char in name)):
         raise ValueError("Give this button a name of 1–64 characters.")
-    if (kind not in ("scene", "light_off") or not isinstance(target, str)
-            or not ENTITY.fullmatch(target)
-            or not target.startswith("scene." if kind == "scene" else "light.")):
-        raise ValueError("Choose a scene or light from Home Assistant.")
+    if not isinstance(kind, str):
+        raise ValueError("Choose an action type.")
+    if kind == "custom":
+        if target != "":
+            raise ValueError("Choose actions in Home Assistant.")
+        actions = []
+    else:
+        domain = {"scene": "scene.", "light_off": "light.", "script": "script."}.get(kind)
+        if (domain is None or not isinstance(target, str) or not ENTITY.fullmatch(target)
+                or not target.startswith(domain)):
+            raise ValueError("Choose a scene, light or script from Home Assistant.")
+        actions = [{"action": SERVICES[kind], "target": {"entity_id": target}}]
     return {"id": rule_id(event), "alias": "Beoremote · " + name.strip(), "description": MARKER,
             "mode": "queued", "max": 5, "max_exceeded": "silent",
             "triggers": [{"trigger": "event", "event_type": "beoremote_telegram", "event_data": {
                 "peer_jid": event["peer_jid"], "originator": "0", "data_hex": event["data_hex"]}}],
-            "conditions": [], "actions": [
-                {"condition": "template", "value_template": FRESH},
-                {"action": "scene.turn_on" if kind == "scene" else "light.turn_off",
-                 "target": {"entity_id": target}}]}
+            "conditions": [], "actions": [dict(GUARD), *actions]}
 
 
 def owned_rule(config, key):
-    if not isinstance(config, dict) or config.get("description") != MARKER or not RULE.fullmatch(key):
+    # The button-derived ID plus its matching trigger identify a gateway rule even
+    # after HA changes the description or adds triggers. Never overwrite that work.
+    if not isinstance(config, dict) or not isinstance(key, str) or not RULE.fullmatch(key):
         return None
     try:
-        triggers = config["triggers"]
-        if (len(triggers) != 1 or triggers[0]["trigger"] != "event"
-                or triggers[0]["event_type"] != "beoremote_telegram"):
+        if config["id"] != key:
             return None
-        event = triggers[0]["event_data"]
-        if rule_id(event) != key or config["id"] != key:
+        event = None
+        for trigger in config["triggers"]:
+            if trigger.get("trigger") == "event" and trigger.get("event_type") == "beoremote_telegram":
+                candidate = trigger.get("event_data", {})
+                try:
+                    matches = rule_id(candidate) == key
+                except (TypeError, ValueError, AttributeError):
+                    continue
+                if matches:
+                    event = candidate
+                    break
+        if event is None:
             return None
         name = str(config.get("alias", "My LIGHT button")).removeprefix("Beoremote · ")
         customized = {"id": key, "name": name, "tv_jid": event["peer_jid"], "customized": True}
-    except (KeyError, TypeError, ValueError, IndexError):
+    except (KeyError, TypeError, ValueError, AttributeError):
         return None
     try:
-        action = config["actions"][1]
-        kind = {"scene.turn_on": "scene", "light.turn_off": "light_off"}.get(action["action"])
-        standard = make_rule(event, name, kind, action["target"]["entity_id"])
-        # Preserve anything edited beyond the simple form in Home Assistant.
+        actions = config["actions"]
+        legacy = actions[:1] == [{"condition": "template", "value_template": LEGACY_FRESH}]
+        simple = actions[1:] if legacy or actions[:1] == [GUARD] else actions
+        if not simple:
+            kind, target = "custom", ""
+        else:
+            kind = {value: key for key, value in SERVICES.items()}.get(simple[0]["action"])
+            target = simple[0]["target"]["entity_id"]
+        standard = make_rule(event, name, kind, target)
+        if legacy:
+            standard["conditions"] = []
+            standard["actions"][0] = {"condition": "template", "value_template": LEGACY_FRESH}
         if config != standard:
             return customized
-        return {"id": key, "name": name, "tv_jid": event["peer_jid"], "customized": False,
-                "kind": kind, "target": action["target"]["entity_id"]}
+        return {**customized, "customized": False, "kind": kind, "target": target}
     except (KeyError, TypeError, ValueError, IndexError):
         return customized
 
@@ -72,16 +99,23 @@ class ActionManager:
         self.lock = asyncio.Lock()
 
     async def targets(self):
-        return self._targets(await self.ha.states())
+        return self._targets(await self.ha.states(), await self.ha.request("GET", "services"))
 
     @staticmethod
-    def _targets(states):
-        result = {"scenes": [], "lights": []}
+    def _targets(states, services):
+        result = {"scenes": [], "lights": [], "scripts": []}
+        script_services = next((item.get("services", {}) for item in services
+                                if item.get("domain") == "script"), {}) if isinstance(services, list) else {}
         for state in states:
             entity = state.get("entity_id", "")
             if not ENTITY.fullmatch(entity) or state.get("state") == "unavailable":
                 continue
-            group = "scenes" if entity.startswith("scene.") else "lights"
+            domain, short_name = entity.split(".", 1)
+            group = {"scene": "scenes", "light": "lights", "script": "scripts"}[domain]
+            if domain == "script":
+                service = script_services.get(short_name)
+                if service is None or any(field.get("required") for field in service.get("fields", {}).values()):
+                    continue
             result[group].append({"id": entity, "name": state.get("attributes", {}).get("friendly_name") or entity})
         for items in result.values():
             items.sort(key=lambda item: (item["name"].casefold(), item["id"]))
@@ -134,32 +168,41 @@ class ActionManager:
 
     async def save(self, event, name, kind, target):
         config = make_rule(event, name, kind, target)
-        key = config["id"]
         async with self.lock:
-            return await self._save(config, name, kind, target)
+            return await self._save(config, name, kind, target, creating=True)
 
     async def update(self, key, jid, name, kind, target):
         async with self.lock:
             existing = await self._owned(key, jid)
+            if kind == "custom":
+                raise ValueError("Open this button in Home Assistant to keep and edit its existing actions.")
             config = make_rule(existing["triggers"][0]["event_data"], name, kind, target)
             return await self._save(config, name, kind, target)
 
-    async def _save(self, config, name, kind, target):
+    async def _save(self, config, name, kind, target, creating=False):
         key = config["id"]
-        targets = await self.targets()
-        group = targets["scenes" if kind == "scene" else "lights"]
-        if not any(item["id"] == target for item in group):
-            raise ValueError("This scene or light is no longer available. Choose another one.")
+        if kind != "custom":
+            targets = await self.targets()
+            if not any(item["id"] == target for item in targets[GROUPS[kind]]):
+                raise ValueError("This target is unavailable or needs inputs. Choose another one or use Home Assistant.")
         existing = await self.ha.request("GET", "config/automation/config/" + key)
         if existing is not None:
             owned = owned_rule(existing, key)
             if owned is None or owned["customized"]:
                 raise ValueError("An existing automation for this button was edited outside this app. Review it in Home Assistant first.")
+            if creating and existing != config:
+                raise ValueError("This button is already set up. Open its existing action to change it.")
+        enabled = True
+        if existing is not None:
+            enabled = next((state["state"] == "on" for state in await self.ha.states()
+                            if state.get("entity_id", "").startswith("automation.")
+                            and state.get("attributes", {}).get("id") == key), True)
         if existing != config:
             await self.ha.request("POST", "config/automation/config/" + key, config)
         await self._reload(key)
         entity = await self._entity(key)
-        await self.ha.request("POST", "services/automation/turn_on", {"entity_id": entity})
+        await self.ha.request("POST", "services/automation/turn_on" if enabled else "services/automation/turn_off",
+                              {"entity_id": entity})
         return {"id": key, "name": name.strip(), "edit_path": "/config/automation/edit/" + key}
 
     async def _owned(self, key, jid):

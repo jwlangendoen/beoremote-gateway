@@ -1,3 +1,19 @@
+# 0.5.0
+
+- Open directly on your saved buttons, with a compact TV status. Search only
+  during setup or after Change TV. Keep service-menu help under No button received?
+- Learn buttons in a separate dialog with a 60-second listening window.
+  Recognize existing buttons before offering to change them.
+- Choose any action in the Home Assistant editor without first creating a light
+  action. A new button starts with no action; finish it in Home Assistant.
+- Add Run a script alongside scenes and lights-off. Scripts needing inputs use
+  the Home Assistant editor.
+- Keep paused automations paused when edited. Keep HA-customized rules visible
+  when their description or triggers change, without overwriting their contents.
+- New and explicitly changed rules allow HA's Run actions while still rejecting
+  delayed remote presses when queued execution begins. Existing rules are kept
+  as they are until you change them.
+
 # 0.4.2
 
 - Start with no app options to fill in. Technical overrides are optional;

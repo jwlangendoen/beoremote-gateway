@@ -33,7 +33,7 @@ class ButtonLearning:
     def start(self, jid):
         self.finish()
         self.session = {"id": secrets.token_hex(16), "jid": jid,
-                        "state": "listening", "until": self.clock() + 30}
+                        "state": "listening", "until": self.clock() + 60}
         return self.status()
 
     def _current(self):

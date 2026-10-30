@@ -5,7 +5,8 @@ The LIGHT menu was there, so it seemed like a nice thing to make work with Home
 Assistant. At home I use it to switch between lighting scenes.
 
 This runs as a Home Assistant app. Choose your TV, press a LIGHT button and pick
-a scene or lights to turn off. Everything stays on your local network.
+a scene, lights or a script. You can also choose any action in the normal
+Home Assistant editor. Everything stays on your local network.
 
 ## Get started
 
@@ -14,9 +15,8 @@ local network.
 
 [![Add repository to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fjwlangendoen%2Fbeoremote-gateway)
 
-Install **Beoremote Gateway**, click **Start**, then **Open Web UI**. You can leave
-the Configuration tab alone. Enable **Show in sidebar** to open the app directly
-from the Home Assistant menu.
+Install **Beoremote Gateway**, click **Start**, then **Open Web UI**. Enable
+**Show in sidebar** to open it directly from the Home Assistant menu next time.
 
 **[Follow the setup guide →](beoremote_gateway/DOCS.md)**
 

@@ -4,145 +4,176 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Beoremote Gateway</title>
 <style>
-:root { color-scheme: light dark; --bg:#f4f6f7; --card:#fff; --text:#172b36; --muted:#526570; --line:#dce3e7; --accent:#006c8a; }
+:root { color-scheme:light dark; --bg:#f4f6f7; --card:#fff; --text:#172b36; --muted:#526570; --line:#dce3e7; --accent:#006c8a; }
 * { box-sizing:border-box; }
-body { margin:0; background:var(--bg); color:var(--text); font:16px/1.55 system-ui,sans-serif; }
-main { max-width:800px; margin:40px auto; padding:0 24px 40px; }
-h1 { font-size:30px; letter-spacing:-.6px; margin:0 0 8px; } h2 { font-size:20px; margin:0 0 12px; }
-p { margin:0 0 16px; } .muted,small { color:var(--muted); } .intro { margin-bottom:28px; }
-section { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:24px; margin-bottom:18px; }
-button { border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--text); padding:10px 16px; font:inherit; cursor:pointer; }
+body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,sans-serif; }
+main { max-width:800px; margin:32px auto; padding:0 24px 40px; }
+h1 { font-size:28px; letter-spacing:-.5px; margin:0 0 24px; } h2 { font-size:20px; margin:0 0 12px; }
+p { margin:0 0 16px; } .muted,small { color:var(--muted); }
+section { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:24px; margin-bottom:18px; }
+button,a.button { border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--text); padding:10px 16px; font:inherit; cursor:pointer; text-decoration:none; }
 button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
-a.button { border:1px solid var(--line); border-radius:8px; color:var(--text); padding:10px 16px; text-decoration:none; }
-button:disabled { opacity:.55; cursor:default; } button:focus-visible,input:focus-visible,select:focus-visible { outline:3px solid #00a4cf; outline-offset:3px; }
-.actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; } .product { display:flex; gap:12px; align-items:flex-start; border:1px solid var(--line); border-radius:9px; padding:14px; margin:10px 0; cursor:pointer; }
-.product:has(input:checked) { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 7%,var(--card)); }
+button:disabled { opacity:.55; cursor:default; }
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible { outline:3px solid #00a4cf; outline-offset:3px; }
+a { color:var(--accent); } .actions,.heading { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+.heading { justify-content:space-between; margin-bottom:12px; } .heading h2 { margin:0; } .heading p { margin:4px 0 0; }
+.product { display:flex; gap:12px; align-items:flex-start; border:1px solid var(--line); border-radius:8px; padding:14px; margin:10px 0; cursor:pointer; }
+.product:has(input:checked) { border-color:var(--accent); }
 input[type=radio] { accent-color:var(--accent); width:19px; height:19px; margin:4px 0 0; flex-shrink:0; }
-.product strong,.product small { display:block; overflow-wrap:anywhere; } #products { margin:16px 0; } #notice { color:#a33f17; }
-.badge { display:inline-block; border-radius:20px; background:color-mix(in srgb,var(--accent) 10%,var(--card)); color:var(--accent); padding:3px 10px; font-size:14px; font-weight:600; margin-bottom:12px; }
+.product strong,.product small { display:block; overflow-wrap:anywhere; } #products { margin:16px 0; }
+#notice,#action-note { color:#a33f17; } #action-note:empty { display:none; }
+.badge { display:inline-block; color:var(--accent); font-size:14px; }
 label.field { display:block; margin:16px 0; font-weight:600; }
 input[type=text],select { display:block; width:100%; margin-top:6px; border:1px solid var(--line); border-radius:8px; padding:11px; background:var(--card); color:var(--text); font:inherit; }
-.rule { border-top:1px solid var(--line); padding:16px 0; } .rule strong { display:block; } .rule .actions { margin-top:10px; } .rule button { padding:6px 12px; font-size:14px; } a { color:var(--accent); }
-#learn-panel { border-top:1px solid var(--line); margin-top:20px; padding-top:20px; } #action-note { margin-top:14px; } #saved { padding:12px; background:color-mix(in srgb,var(--accent) 8%,var(--card)); border-radius:8px; }
-ol { padding-left:23px; } li { margin:7px 0; } details { margin-top:16px; } summary { cursor:pointer; color:var(--muted); }
+.rule { border-top:1px solid var(--line); padding:16px 0; } .rule strong { display:block; } .rule .actions { margin-top:10px; }
+.rule button { padding:6px 12px; font-size:14px; } #saved { padding:12px; background:color-mix(in srgb,var(--accent) 8%,var(--card)); border-radius:8px; }
+ol { padding-left:23px; } li { margin:7px 0; } details { margin-top:16px; } summary { cursor:pointer; }
+.help { margin-top:24px; } .help details { padding-top:16px; border-top:1px solid var(--line); } details p,details ol { margin-top:12px; }
 code { font-size:13px; overflow-wrap:anywhere; } [hidden] { display:none !important; }
-@media(prefers-color-scheme:dark) { :root { --bg:#10191e; --card:#1a272e; --text:#e5edf0; --muted:#a7bac4; --line:#35464f; --accent:#70d4ee; } button.primary { color:#10242d; } #notice { color:#ffb18e; } }
-@media(max-width:520px) { main { margin:24px auto; padding:0 16px 24px; } section { padding:20px; } h1 { font-size:26px; } }
+dialog { width:min(520px,calc(100% - 32px)); max-height:90dvh; padding:24px; border:1px solid var(--line); border-radius:12px; background:var(--card); color:var(--text); }
+dialog::backdrop { background:#0006; } #learn-note { margin-bottom:16px; } #dialog-error { color:#a33f17; }
+@media(prefers-color-scheme:dark) { :root { --bg:#10191e; --card:#1a272e; --text:#e5edf0; --muted:#a7bac4; --line:#35464f; --accent:#70d4ee; } button.primary { color:#10242d; } #notice,#action-note,#dialog-error { color:#ffb18e; } }
+@media(max-width:520px) { main { margin:24px auto; padding:0 16px 24px; } section,dialog { padding:20px; } h1 { font-size:26px; } }
 </style>
 <main>
   <h1>Beoremote Gateway</h1>
-  <p class="intro muted">Choose your TV, then use your Beoremote to run Home Assistant actions.</p>
   <p id="notice" role="alert" hidden></p>
   <section aria-labelledby="connection-title">
-    <span class="badge" id="state">Loading…</span>
-    <h2 id="connection-title">1. Choose your TV</h2>
-    <p id="connection">Your TV and Home Assistant need to be on the same local network.</p>
-    <p id="manual" hidden>In the app's Configuration tab, set <strong>Mode</strong> to <strong>auto</strong>, save and restart. Existing manual settings are kept.</p>
-    <div id="chooser">
+    <div class="heading">
+      <div><h2 id="connection-title">Choose your TV</h2><span class="badge" id="state" role="status">Loading…</span></div>
+      <button id="change-tv" type="button" hidden>Change TV</button>
+    </div>
+    <p id="connection" class="muted" hidden></p>
+    <p id="manual" hidden>For automatic setup, set Mode to auto in the app's Configuration tab and restart.</p>
+    <div id="chooser" hidden>
       <button id="scan" type="button">Find my TV</button>
       <div id="products" role="group" aria-label="Discovered B&O products"></div>
       <p id="scan-note" class="muted" aria-live="polite"></p>
       <div class="actions">
         <button id="select" class="primary" type="button" disabled>Use this TV</button>
-        <button id="pause" type="button" hidden>Stop gateway</button>
+        <button id="close-chooser" type="button" hidden>Cancel</button>
       </div>
     </div>
-    <details id="technical" hidden><summary>Connection details</summary><p><code id="details"></code></p></details>
-  </section>
-  <section aria-labelledby="remote-title">
-    <h2 id="remote-title">2. Select the gateway on your Horizon</h2>
-    <p>Keep this app running with your TV selected. Then use your Beoremote One to open the gateway list on the TV:</p>
-    <ol>
-      <li>With the TV on any source, open <strong>MENU → Settings</strong>.</li>
-      <li>Highlight <strong>Service Menu</strong> and press the <strong>red button before the centre button</strong>.</li>
-      <li>Open <strong>Customer Service Menu → Settings → BeoLink Gateway</strong>.</li>
-      <li>Select <strong id="gateway-name">Home Assistant Gateway</strong> and confirm with the centre button.</li>
-      <li>Return here and wait for <strong>TV connected</strong>, then add your first LIGHT button below.</li>
-    </ol>
-    <p class="muted">Finding the TV here does not select the gateway on the TV. If the gateway is missing, check that you clicked Use this TV, then close and reopen the TV's gateway list.</p>
-    <details><summary>Gateway name and older installations</summary><p>New installs use <strong>Home Assistant Gateway</strong>. Updates keep your saved name. To rename it, open the app's Configuration tab, show unused optional options, change <strong>Name in the TV menu</strong>, save and restart, then reopen the TV's gateway list. Select the name shown above.</p></details>
-    <p class="muted">The gateway won't change TV sources or turn on lights by itself. Your automations decide what a button does.</p>
   </section>
   <section aria-labelledby="actions-title">
-    <h2 id="actions-title">3. Choose your LIGHT actions</h2>
-    <p>Teach the app a button, then choose what it should do.</p>
-    <p id="action-note" class="muted" role="status">Connect your TV to get started.</p>
+    <div class="heading"><h2 id="actions-title">Your buttons</h2><button id="add" class="primary" type="button" disabled>Add a button</button></div>
+    <p id="action-note" role="status"></p>
     <p id="saved" role="status" hidden></p>
+    <p id="empty" class="muted" hidden>No buttons yet.</p>
     <div id="rules"></div>
-    <div class="actions"><button id="add" class="primary" type="button" disabled>Add a button</button><button id="reload-actions" type="button" disabled>Refresh actions</button></div>
-    <div id="learn-panel" hidden>
-      <h2 id="learn-title">Press a LIGHT button</h2>
-      <p id="learn-note" role="status"></p>
-      <form id="action-form" hidden>
-        <label class="field" for="button-name">Button name<input id="button-name" type="text" maxlength="64" required autocomplete="off" placeholder="For example: Movie"></label>
-        <label class="field" for="action-kind">What should happen?<select id="action-kind"><option value="scene">Activate a scene</option><option value="light_off">Turn off lights</option></select></label>
-        <label class="field" for="action-target"><span id="target-label">Scene</span><select id="action-target" required></select></label>
-        <p id="target-note" class="muted"></p>
-        <button id="save" class="primary" type="submit">Save action</button>
-      </form>
-      <div class="actions" style="margin-top:12px"><button id="retry" type="button" hidden>Try again</button><button id="cancel" type="button">Cancel</button></div>
-    </div>
-    <details>
-      <summary>Existing automations and more options</summary>
-      <p>Turn off any older automation for the same button before adding it here, so one press doesn't run both. Learning a button does not run its action.</p>
-      <p>To change a saved action, choose <strong>Change</strong> and pick a different scene or light. These are ordinary Home Assistant automations; use <strong>More options</strong> for other actions. Automations edited there are managed there from then on.</p>
-      <p>The optional blueprint is still available for advanced setups.</p>
-      <div class="actions"><a class="button" href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fjwlangendoen%2Fbeoremote-gateway%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fbeoremote_light_action.yaml" target="_blank" rel="noopener noreferrer">Import blueprint</a><button id="copy" type="button" disabled>Copy TV identity</button><small id="copied" aria-live="polite"></small></div>
-    </details>
-    <details>
-      <summary>Give the LIGHT functions your own names</summary>
-      <p>The display names are edited on the Beoremote One. For the Horizon, the editor is in a separate infrared product profile:</p>
-      <ol>
-        <li>On the remote, open <strong>LIST → Settings → Advanced → Products</strong>. Show or add the separate <strong>Beovision (infrared/IR)</strong> profile if it isn't listed yet. On remotes with a <strong>Show</strong> menu, enable it there.</li>
-        <li>Select that separate <strong>Beovision</strong> product from the product list at the top of LIST.</li>
-        <li>Open <strong>Settings → Advanced → Light menu</strong>. Use <strong>Rename</strong> for names, <strong>Show</strong> for visible functions and <strong>Move</strong> for their order.</li>
-        <li>Switch back to your usual Bluetooth-paired Horizon product. The renamed LIGHT functions remain available there.</li>
-      </ol>
-      <p class="muted">Keep your Horizon pairing. The extra IR profile only gives you access to this editor. A name such as “Movie” is a remote label; choose the matching scene in this app separately. The app cannot read or change the names on the remote.</p>
-    </details>
+    <button id="reload-actions" type="button" disabled>Refresh</button>
   </section>
+  <div class="help">
+    <details id="remote-help">
+      <summary>No button received?</summary>
+      <p>Turn on your TV. On the Beoremote, open <strong>LIST → LIGHT</strong> and press a function. If it arrives in the app, no TV menu changes are needed.</p>
+      <p>If nothing arrives, select the gateway on your Horizon:</p>
+      <ol>
+        <li>Open <strong>MENU → Settings</strong>.</li>
+        <li>Highlight <strong>Service Menu</strong> and press the <strong>red button before the centre button</strong>.</li>
+        <li>Open <strong>Customer Service Menu → Settings → BeoLink Gateway</strong>.</li>
+        <li>Select <strong id="gateway-name">Home Assistant Gateway</strong> and confirm with the centre button.</li>
+      </ol>
+      <p class="muted">If the gateway is missing, choose your TV in this app, then reopen the TV's gateway list.</p>
+    </details>
+    <details>
+      <summary>Rename LIGHT functions on the remote</summary>
+      <ol>
+        <li>Open <strong>LIST → Settings → Advanced → Products</strong>. Show or add the separate <strong>Beovision (infrared/IR)</strong> profile.</li>
+        <li>Select that <strong>Beovision</strong> product at the top of LIST.</li>
+        <li>Open <strong>Settings → Advanced → Light menu → Rename</strong>. Show and Move control visibility and order.</li>
+        <li>Switch back to your Bluetooth-paired Horizon.</li>
+      </ol>
+      <p class="muted">Keep your Horizon pairing. Names on the remote and in this app are set separately.</p>
+    </details>
+    <details>
+      <summary>Connection settings</summary>
+      <p><code id="details"></code></p>
+      <div class="actions"><button id="pause" type="button" hidden>Stop gateway</button><button id="resume" type="button" hidden>Start gateway</button><button id="copy" type="button" disabled>Copy TV identity</button><small id="copied" aria-live="polite"></small></div>
+      <p class="muted">To change the name in the TV menu, use Name in the TV menu in the app's optional Configuration settings.</p>
+    </details>
+    <details>
+      <summary>Automations and advanced setup</summary>
+      <p>Each button uses a normal Home Assistant automation. Open it in Home Assistant for any action or condition. Changes made there stay there; this app won't overwrite them.</p>
+      <p>Disable any older automation for the same button to avoid running both.</p>
+      <a href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fjwlangendoen%2Fbeoremote-gateway%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fbeoremote_light_action.yaml" target="_blank" rel="noopener noreferrer">Import blueprint</a>
+    </details>
+  </div>
 </main>
+<dialog id="learn-panel" aria-labelledby="learn-title" aria-describedby="learn-note">
+  <h2 id="learn-title">Press a LIGHT button</h2>
+  <p id="learn-note" role="status"></p>
+  <p id="dialog-error" role="alert" hidden></p>
+  <div id="known-button" hidden>
+    <p id="known-action" class="muted"></p>
+    <div class="actions"><button id="edit-known" type="button">Change action</button><a id="open-known" target="_top">Open in Home Assistant</a></div>
+  </div>
+  <form id="action-form" hidden>
+    <label id="name-field" class="field" for="button-name">Button name<input id="button-name" type="text" maxlength="64" required autocomplete="off" placeholder="For example: Movie"></label>
+    <label class="field" for="action-kind">Action<select id="action-kind"><option value="custom">Choose in Home Assistant</option><option value="scene">Activate a scene</option><option value="light_off">Turn off lights</option><option value="script">Run a script</option></select></label>
+    <label id="target-field" class="field" for="action-target"><span id="target-label">Scene</span><select id="action-target"></select></label>
+    <p id="target-note" class="muted" hidden></p>
+    <button id="save" class="primary" type="submit">Continue in Home Assistant</button>
+  </form>
+  <div class="actions" style="margin-top:16px"><button id="retry" type="button" hidden>Try again</button><button id="cancel" type="button">Cancel</button><button id="learn-help" type="button" hidden>Connection help</button></div>
+</dialog>
 <script nonce="__NONCE__">
 const base = new URL(__BASE_JSON__, location.origin);
 const token = __TOKEN_JSON__;
 const el = id => document.getElementById(id);
-let status = null, selected = '', busy = false, copyValue = '';
-let refreshing=false;
-let actionBusy=false, loadedTV='', learningID='', targets={scenes:[],lights:[]}, editing=null;
+let status=null, selected='', busy=false, copyValue='', choosing=false, refreshing=false;
+let actionBusy=false, loadedTV='', learningID='', targets={scenes:[],lights:[],scripts:[]}, editing=null, rules=[], known=null;
 function actionNotice(text) { el('action-note').textContent=text; }
+function dialogError(text='') { el('dialog-error').textContent=text; el('dialog-error').hidden=!text; }
 function actionReady(data) { return data?.runtime?.listener && data.runtime.ha.delivery!=='disabled'; }
 function actionControls() {
-  const ready=actionReady(status);
-  el('add').disabled=!ready || actionBusy || !!learningID || !!editing;
-  el('reload-actions').disabled=!ready || actionBusy;
-  el('save').disabled=actionBusy || !el('action-target').value;
-  el('cancel').disabled=actionBusy; el('retry').disabled=actionBusy;
-  for(const button of el('rules').querySelectorAll('button'))button.disabled=actionBusy || !!learningID || !!editing;
+  const ready=actionReady(status), modal=el('learn-panel').open;
+  el('add').disabled=!ready || actionBusy || modal;
+  el('reload-actions').disabled=!ready || actionBusy || modal;
+  el('save').disabled=actionBusy || (el('action-kind').value!=='custom' && !el('action-target').value);
+  for(const id of ['cancel','retry','edit-known','learn-help'])el(id).disabled=actionBusy;
+  for(const button of el('rules').querySelectorAll('button'))button.disabled=actionBusy || modal;
+}
+function openPanel() { if(!el('learn-panel').open)el('learn-panel').showModal(); }
+function closePanel() { el('learn-panel').close(); learningID=''; editing=null; known=null; dialogError(); actionControls(); }
+function describe(rule) {
+  if(rule.customized)return 'Managed in Home Assistant';
+  if(rule.kind==='custom')return 'No actions yet';
+  return ({scene:'Scene: ',light_off:'Turn off: ',script:'Script: '}[rule.kind] || '')+rule.target_name;
 }
 function showLearning(learning) {
   if(!learningID)return;
-  el('learn-panel').hidden=false;
-  const current=learning?.id===learningID;
-  const captured=current && learning.state==='captured';
-  el('action-form').hidden=!captured; el('retry').hidden=current;
-  el('learn-title').textContent=captured?'Choose an action':current?'Press a LIGHT button':'No button received';
-  el('learn-note').textContent=captured?'Button received. Give it a name and choose what it should do.':current?'Open LIGHT on your Beoremote and press the function you want to use. Waiting '+learning.seconds_left+' seconds…':'Check that your TV is connected and the gateway is selected on the TV, then try again.';
-  if(captured && el('action-form').dataset.session!==learningID) {
+  openPanel();
+  const current=learning?.id===learningID, captured=current && learning.state==='captured';
+  known=captured?rules.find(rule=>rule.id===learning.button_id) || null:null;
+  el('action-form').hidden=!captured || !!known;
+  el('known-button').hidden=!known; el('retry').hidden=current; el('learn-help').hidden=current;
+  el('learn-title').textContent=known?'Already set up':captured?'New button':current?'Press a LIGHT button':'No button received';
+  el('learn-note').textContent=known?'“'+known.name+'” is already linked.':captured?'Button received.':current?'LIST → LIGHT → press a function. '+learning.seconds_left+' seconds left.':'Turn on your TV and try again, or open connection help.';
+  if(known) {
+    el('known-action').textContent=describe(known);
+    el('edit-known').hidden=known.customized || known.kind==='custom';
+    el('open-known').href=known.edit_path;
+  } else if(captured && el('action-form').dataset.session!==learningID) {
     el('action-form').dataset.session=learningID;
-    el('button-name').value=editing?.name || learning.button_name;
-    el('action-kind').value=editing?.kind || 'scene';
-    renderTargets(editing?.target); el('button-name').focus(); el('button-name').select();
+    el('button-name').value=learning.button_name; el('action-kind').value='custom';
+    renderTargets(); el('button-name').focus(); el('button-name').select();
   }
   actionControls();
 }
 function renderTargets(chosen) {
-  const scene=el('action-kind').value==='scene', items=targets[scene?'scenes':'lights'];
-  el('target-label').textContent=scene?'Scene':'Light or light group';
+  const kind=el('action-kind').value, custom=kind==='custom';
+  const items=targets[{scene:'scenes',light_off:'lights',script:'scripts'}[kind]] || [];
+  el('name-field').hidden=custom && !!editing; el('button-name').required=!(custom && !!editing);
+  el('target-field').hidden=custom; el('action-target').required=!custom;
+  el('target-label').textContent={scene:'Scene',light_off:'Light or light group',script:'Script'}[kind] || '';
   el('action-target').replaceChildren();
-  const empty=document.createElement('option');empty.value='';empty.textContent=scene?'Choose a scene':'Choose lights';el('action-target').append(empty);
+  const empty=document.createElement('option');empty.value='';empty.textContent='Choose…';el('action-target').append(empty);
   for(const item of items){const option=document.createElement('option');option.value=item.id;option.textContent=item.name;el('action-target').append(option);}
   if(chosen && items.some(item=>item.id===chosen))el('action-target').value=chosen;
-  el('target-note').textContent=items.length?(scene?'Your existing Home Assistant scenes.':'Choose a light group to turn off several lights together.'):(scene?'No scenes found. Create a scene in Home Assistant, then choose Refresh actions.':'No lights found in Home Assistant. Add your lights there first.');
+  const note=custom?(editing?'Your existing actions will be kept.':''):kind==='script'?'For script inputs, use Home Assistant.':!items.length?'None found. Create one in Home Assistant, then refresh.':'';
+  el('target-note').textContent=note; el('target-note').hidden=!note;
+  el('save').textContent=custom?'Continue in Home Assistant':'Save';
   actionControls();
 }
 async function loadActions() {
@@ -150,23 +181,24 @@ async function loadActions() {
   if(!actionReady(status))return;
   const data=await api('api/actions');
   if(status.tv_jid!==jid)return;
-  el('rules').replaceChildren();
-  for(const rule of data.actions) {
+  rules=data.actions; el('rules').replaceChildren();
+  for(const rule of rules) {
     const row=document.createElement('div');row.className='rule';
     const name=document.createElement('strong');name.textContent=rule.name+(rule.enabled?'':' · Paused');
-    const description=document.createElement('span');description.className='muted';description.textContent=rule.customized?'Edited in Home Assistant':(rule.kind==='scene'?'Scene: ':'Turn off: ')+rule.target_name;
+    const description=document.createElement('span');description.className='muted';description.textContent=describe(rule);
     const controls=document.createElement('div');controls.className='actions';
-    const link=document.createElement('a');link.textContent='More options';link.href=rule.edit_path;link.target='_top';
+    const link=document.createElement('a');link.textContent=rule.kind==='custom'?'Choose actions in Home Assistant':'Open in Home Assistant';link.href=rule.edit_path;link.target='_top';link.setAttribute('aria-label',link.textContent+' for '+rule.name);
     if(!rule.customized) {
-      for(const [label,operation] of [['Change',()=>editRule(rule)],[rule.enabled?'Pause':'Enable',()=>changeRule('toggle',{id:rule.id,enabled:!rule.enabled})],['Remove',()=>{if(confirm('Remove the action for “'+rule.name+'”?'))return changeRule('remove',{id:rule.id});}]]) {
-        const button=document.createElement('button');button.type='button';button.textContent=label;button.addEventListener('click',operation);controls.append(button);
+      const operations=[];
+      if(rule.kind!=='custom')operations.push(['Change',()=>editRule(rule)]);
+      operations.push([rule.enabled?'Pause':'Enable',()=>changeRule('toggle',{id:rule.id,enabled:!rule.enabled})],['Remove',()=>{if(confirm('Remove the action for “'+rule.name+'”?'))return changeRule('remove',{id:rule.id});}]);
+      for(const [label,operation] of operations) {
+        const button=document.createElement('button');button.type='button';button.textContent=label;button.setAttribute('aria-label',label+' '+rule.name);button.addEventListener('click',operation);controls.append(button);
       }
     }
     controls.append(link);row.append(name,description,controls);el('rules').append(row);
   }
-  loadedTV=jid;
-  actionNotice(data.actions.length?'Your saved buttons appear below.':'No buttons yet. Add your first LIGHT button below.');
-  actionControls();
+  loadedTV=jid; el('empty').hidden=!!rules.length; actionNotice(''); actionControls();
 }
 async function changeRule(operation,body) {
   if(actionBusy)return;actionBusy=true;actionControls();
@@ -175,113 +207,121 @@ async function changeRule(operation,body) {
 async function editRule(rule) {
   if(actionBusy)return;actionBusy=true;actionControls();
   try {
-    targets=await api('api/targets');editing=rule;learningID='';
-    el('saved').hidden=true;el('learn-panel').hidden=false;el('action-form').hidden=false;el('retry').hidden=true;
-    el('learn-title').textContent='Change your action';el('learn-note').textContent='Choose what this button should do.';
-    el('button-name').value=rule.name;el('action-kind').value=rule.kind;renderTargets(rule.target);
-    el('button-name').focus();
+    targets=await api('api/targets');editing=rule;learningID=''; known=null; dialogError();
+    el('saved').hidden=true;el('action-form').hidden=false;el('known-button').hidden=true;el('retry').hidden=true;el('learn-help').hidden=true;
+    el('learn-title').textContent='Change '+rule.name;el('learn-note').textContent=rule.enabled?'':'This button is paused.';
+    el('button-name').value=rule.name;el('action-kind').value=rule.kind;renderTargets(rule.target);openPanel();
   }catch(error){actionNotice(error.message);}finally{actionBusy=false;actionControls();}
 }
-async function startLearning(rule=null) {
-  if(actionBusy)return;actionBusy=true;editing=rule;el('saved').hidden=true;actionControls();
+async function startLearning() {
+  if(actionBusy)return;actionBusy=true;editing=null;known=null;dialogError();el('saved').hidden=true;actionControls();
   try {
-    targets=await api('api/targets');
-    const learning=await api('api/learning/start',{});learningID=learning.id;
-    showLearning(learning);el('learn-title').scrollIntoView({behavior:'smooth',block:'center'});
-  }catch(error){actionNotice(error.message);}finally{actionBusy=false;actionControls();}
+    await loadActions(); targets=await api('api/targets');
+    const learning=await api('api/learning/start',{});learningID=learning.id;showLearning(learning);
+  }catch(error){if(el('learn-panel').open)dialogError(error.message);else actionNotice(error.message);}finally{actionBusy=false;actionControls();}
 }
-
+async function cancelLearning() {
+  if(actionBusy)return false;actionBusy=true;actionControls();
+  try {if(learningID)await api('api/learning/cancel',{});closePanel();return true;}
+  catch(error){dialogError(error.message);return false;}finally{actionBusy=false;actionControls();}
+}
 function notice(text='') { el('notice').textContent=text; el('notice').hidden=!text; }
 async function api(path, body) {
   const options = body === undefined ? {} : {method:'POST',headers:{'Content-Type':'application/json','X-Setup-Token':token},body:JSON.stringify(body)};
   const response = await fetch(new URL(path,base),options);
-  if (!response.ok) { let data; try { data=await response.json(); } catch { throw new Error('Could not reach setup. Reload the page and try again.'); } throw new Error(data.error || 'Something went wrong.'); }
+  if (!response.ok) { let data; try { data=await response.json(); } catch { throw new Error('Could not reach the app. Reload and try again.'); } throw new Error(data.error || 'Something went wrong.'); }
   return response.json();
 }
 function show(data) {
-  const previousError=status?.error; status=data; const automatic=data.mode==='auto';
-  el('manual').hidden=automatic; el('chooser').hidden=!automatic;
-  const labels={choose_tv:'Choose a TV',active:data.runtime.peers?'TV connected':'Waiting for the TV to connect',waiting:'Waiting for your TV',paused:'Gateway stopped',disabled:'Gateway disabled',error:'Needs attention',listen:'Manual setup',advertise:'Manual setup'};
+  const previousError=status?.error; status=data; const automatic=data.mode==='auto', hasTV=!!data.tv_jid;
+  if(!hasTV && automatic)choosing=true;
+  el('manual').hidden=automatic; el('chooser').hidden=!automatic || !choosing;
+  el('change-tv').hidden=!automatic || !hasTV || choosing;
+  el('close-chooser').hidden=!hasTV;
+  const labels={choose_tv:'Wake your TV to find it.',active:data.runtime.peers?'Connected':'Waiting for TV',waiting:'Waiting for TV',paused:'Gateway stopped',disabled:'Gateway disabled',error:'Needs attention',listen:'Manual setup',advertise:'Manual setup'};
   el('state').textContent=labels[data.state] || data.state;
+  el('connection-title').textContent=data.selection?.name || (hasTV?'Your TV':'Choose your TV');
   el('gateway-name').textContent=data.gateway_name;
-  el('connection').textContent=data.selection ? data.selection.name+' is selected. You can search again to choose a different TV.' : 'Wake your TV and choose it from the list. Other B&O products may appear too.';
+  el('connection').hidden=hasTV;el('connection').textContent='Your TV and Home Assistant need to be on the same network. Only Horizon has been tested.';
   el('pause').hidden=!automatic || !data.selection?.enabled;
+  el('resume').hidden=!automatic || !data.selection || data.selection.enabled;
   copyValue=data.tv_jid || ''; el('copy').disabled=!copyValue;
-  el('technical').hidden=!copyValue;
   el('details').textContent=[copyValue,data.addresses?.tv?'TV: '+data.addresses.tv:'',data.addresses?.gateway?'Gateway: '+data.addresses.gateway:''].filter(Boolean).join(' · ');
   if(!actionReady(data)) {
-    loadedTV=''; learningID=''; editing=null; el('learn-panel').hidden=true; el('rules').replaceChildren(); actionNotice('Connect your TV to get started.');
+    loadedTV=''; rules=[]; closePanel(); el('rules').replaceChildren();el('empty').hidden=true;
+    actionNotice(hasTV?'Waiting for the gateway. Turn on your TV.':'Choose your TV first.');
   } else {
-    if(loadedTV && loadedTV!==data.tv_jid){loadedTV='';learningID='';editing=null;el('rules').replaceChildren();el('learn-panel').hidden=true;}
+    if(loadedTV && loadedTV!==data.tv_jid){loadedTV='';rules=[];closePanel();el('rules').replaceChildren();}
     showLearning(data.learning);
   }
   actionControls();
-  if (data.error) notice(data.error); else if(previousError) notice();
+  if(data.error)notice(data.error);else if(previousError)notice();
 }
 async function refresh() {
   if(refreshing)return;refreshing=true;
+  const initial=status===null;
   try {
     show(await api('api/status'));
     if(actionReady(status) && !loadedTV && !actionBusy) {
-      loadedTV=status.tv_jid;
       try {await loadActions();}catch(error){actionNotice(error.message);}
     }
-    if(actionReady(status) && !learningID && !editing && status.learning?.id && !actionBusy) {
+    if(initial && actionReady(status) && !learningID && !editing && status.learning?.id && !actionBusy) {
       try {targets=await api('api/targets');learningID=status.learning.id;showLearning(status.learning);}
       catch(error){actionNotice(error.message);}
     }
   }catch(error){notice(error.message);}finally{refreshing=false;}
 }
 async function scan() {
-  if(busy)return; busy=true; notice(); el('scan').disabled=true; el('select').disabled=true;
-  selected=''; el('products').replaceChildren(); el('scan-note').textContent='Looking for B&O products…';
+  if(busy)return;busy=true;notice();el('scan').disabled=true;el('select').disabled=true;
+  selected='';el('products').replaceChildren();el('scan-note').textContent='Looking for B&O products…';
   try {
     const data=await api('api/devices');
     for(const device of data.devices) {
-      const label=document.createElement('label'); label.className='product';
-      const radio=document.createElement('input'); radio.type='radio'; radio.name='tv'; radio.value=device.jid;
+      const label=document.createElement('label');label.className='product';
+      const radio=document.createElement('input');radio.type='radio';radio.name='tv';radio.value=device.jid;
+      if(device.jid===status?.tv_jid){radio.checked=true;selected=device.jid;}
       radio.addEventListener('change',()=>{selected=device.jid;el('select').disabled=false;});
-      const text=document.createElement('span'), name=document.createElement('strong'), address=document.createElement('small');
-      name.textContent=device.name; address.textContent=device.addresses.join(' · ');
-      text.append(name,address); label.append(radio,text); el('products').append(label);
+      const text=document.createElement('span'),name=document.createElement('strong'),address=document.createElement('small');
+      name.textContent=device.name;address.textContent=device.addresses.join(' · ');
+      text.append(name,address);label.append(radio,text);el('products').append(label);
     }
-    el('scan-note').textContent=data.devices.length ? 'Choose the TV you want to use. Finding a product does not mean it has been tested with this gateway.' : 'No products found yet. Wake your TV, check the network and try again.';
-  } catch(error) { notice(error.message); el('scan-note').textContent=''; }
-  finally { busy=false;el('scan').disabled=false; }
+    el('scan-note').textContent=data.devices.length?'Only Horizon has been tested. Other B&O products may appear.':'No products found. Wake your TV and try again.';
+  }catch(error){notice(error.message);el('scan-note').textContent='';}
+  finally{busy=false;el('scan').disabled=false;el('select').disabled=!selected;}
 }
-el('add').addEventListener('click',()=>startLearning());
-el('retry').addEventListener('click',()=>startLearning(editing));
-el('cancel').addEventListener('click',async()=>{
-  if(actionBusy)return;actionBusy=true;actionControls();
-  try{await api('api/learning/cancel',{});learningID='';editing=null;el('learn-panel').hidden=true;}
-  catch(error){actionNotice(error.message);}finally{actionBusy=false;actionControls();}
-});
-el('reload-actions').addEventListener('click',async()=>{
-  if(actionBusy)return;actionBusy=true;actionControls();
-  try{targets=await api('api/targets');const chosen=el('action-target').value;renderTargets(chosen);await loadActions();}
-  catch(error){actionNotice(error.message);}finally{actionBusy=false;actionControls();}
-});
+el('add').addEventListener('click',startLearning);
+el('retry').addEventListener('click',startLearning);
+el('cancel').addEventListener('click',cancelLearning);
+el('learn-panel').addEventListener('cancel',event=>{event.preventDefault();cancelLearning();});
+el('learn-help').addEventListener('click',async()=>{if(await cancelLearning()){el('remote-help').open=true;el('remote-help').scrollIntoView({block:'center'});el('remote-help').querySelector('summary').focus();}});
+el('edit-known').addEventListener('click',async()=>{const rule=known;if(await cancelLearning())await editRule(rule);});
+el('open-known').addEventListener('click',async event=>{event.preventDefault();const path=known.edit_path;if(await cancelLearning())window.top.location.href=path;});
+el('reload-actions').addEventListener('click',async()=>{if(actionBusy)return;actionBusy=true;actionControls();try{await loadActions();}catch(error){actionNotice(error.message);}finally{actionBusy=false;actionControls();}});
 el('action-kind').addEventListener('change',()=>renderTargets());
 el('action-target').addEventListener('change',actionControls);
 el('action-form').addEventListener('submit',async event=>{
-  event.preventDefault();if(actionBusy)return;actionBusy=true;actionControls();
-  try{
-    const fields={name:el('button-name').value,kind:el('action-kind').value,target:el('action-target').value};
+  event.preventDefault();if(actionBusy)return;actionBusy=true;dialogError();actionControls();
+  try {
+    const fields={name:el('button-name').value,kind:el('action-kind').value,target:el('action-kind').value==='custom'?'':el('action-target').value};
+    if(editing && fields.kind==='custom'){const path=editing.edit_path;closePanel();window.top.location.href=path;return;}
     const saved=editing?await api('api/actions/update',{id:editing.id,...fields}):await api('api/actions/save',{session_id:learningID,...fields});
-    learningID='';editing=null;el('learn-panel').hidden=true;
-    el('saved').textContent='Saved “'+saved.name+'”. Release the button, then press it again to try the action.';el('saved').hidden=false;
-    await loadActions();
-  }catch(error){actionNotice(error.message);}finally{actionBusy=false;actionControls();}
+    closePanel();
+    if(fields.kind==='custom'){window.top.location.href=saved.edit_path;return;}
+    el('saved').textContent='Saved “'+saved.name+'”.';el('saved').hidden=false;await loadActions();
+  }catch(error){if(el('learn-panel').open)dialogError(error.message);else actionNotice(error.message);}finally{actionBusy=false;actionControls();}
 });
+el('change-tv').addEventListener('click',async()=>{choosing=true;show(status);await scan();});
+el('close-chooser').addEventListener('click',()=>{choosing=false;show(status);});
 el('scan').addEventListener('click',scan);
 el('select').addEventListener('click',async()=>{
   if(!selected || busy)return;busy=true;el('select').disabled=true;notice();
-  try { show(await api('api/select',{jid:selected})); } catch(error) { notice(error.message); }
-  finally { busy=false;el('select').disabled=!selected; }
+  try{const data=await api('api/select',{jid:selected});choosing=false;show(data);}catch(error){notice(error.message);}
+  finally{busy=false;el('select').disabled=!selected;}
 });
-el('pause').addEventListener('click',async()=>{if(busy)return;busy=true;notice();try {show(await api('api/pause',{}));} catch(error){notice(error.message);}finally{busy=false;}});
-el('copy').addEventListener('click',async()=>{try {await navigator.clipboard.writeText(copyValue);el('copied').textContent='Copied';}catch{el('technical').open=true;el('copied').textContent='Copy the identity shown under Connection details.';}});
-(async()=>{await refresh();if(status?.mode==='auto')await scan();})();
-setInterval(()=>{if(!busy)refresh();},3000);
+el('pause').addEventListener('click',async()=>{if(busy)return;busy=true;notice();try{show(await api('api/pause',{}));}catch(error){notice(error.message);}finally{busy=false;}});
+el('resume').addEventListener('click',async()=>{choosing=true;show(status);await scan();});
+el('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(copyValue);el('copied').textContent='Copied';}catch{el('copied').textContent='Copy the identity shown above.';}});
+(async()=>{await refresh();if(status?.mode==='auto' && !status.tv_jid)await scan();})();
+setInterval(()=>{if(!busy)refresh();},2000);
 </script>
 </html>

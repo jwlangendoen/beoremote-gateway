@@ -8,7 +8,7 @@ from pathlib import Path
 import time
 
 from .autodetect import PRODUCT_JID, discover_devices, route_address
-from .actions import ActionManager
+from .actions import ActionManager, rule_id
 from .config import Options
 from .learning import ButtonLearning
 from .runtime import GatewayRuntime
@@ -170,6 +170,9 @@ class SetupController:
         result = {"mode": self.options.mode, "state": self.state, "error": self.error,
                   "selection": self.selection, "gateway_name": self.options.gateway_name,
                   "runtime": self.snapshot(), "learning": self.learning.status()}
+        if result["learning"]["state"] == "captured":
+            event = self.learning.capture(result["learning"]["id"], self.action_tv())
+            result["learning"]["button_id"] = rule_id(event)
         if self.runtime is not None:
             result["addresses"] = {"tv": self.runtime.options.horizon_address,
                                    "gateway": self.runtime.options.advertise_address}

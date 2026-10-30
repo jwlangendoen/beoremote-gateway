@@ -71,9 +71,34 @@ user resets them. This behavior was checked against the HA app configuration
 documentation and frontend implementation; it was not exercised in the user's
 live Supervisor UI.
 
+## Button overview and HA actions (0.5.0)
+
+On 30 October 2026, 83 automated checks passed locally on Python 3.12. The browser
+flow was checked with synthetic data at desktop and 390-pixel mobile widths:
+compact overview, explicit TV change with the selected radio checked, learning,
+recognizing an existing button, changing a paused button to a script and creating
+a button with no actions. The latter navigated to its HA editor path; the local
+preview does not host that editor.
+
+An isolated official HA Core 2026.10.4 container with networking disabled verified:
+
+- Scene and script execution on a fresh synthetic event; saving executes neither.
+- Required script inputs are excluded from the simple picker.
+- Manual Run actions works; stale and future remote events are rejected.
+- A press waiting behind a long run is checked again when execution starts.
+- Pause survives editing, and HA-customized rules stay listed after changing
+  their description and adding a catch-all event trigger.
+- A new button with no device action loads successfully and can be completed in HA.
+
+The aarch64 app container passed default/auto/disabled startup, ingress access,
+health and clean shutdown checks. No household devices were used for these tests.
+The installed 0.4.2 app had separately received a physical LIGHT function 11 press
+during the UX review, without saving a new mapping. A complete physical 0.5.0
+save-and-run check through Supervisor ingress remains to be done.
+
 ## Still to try
 
-- A full 0.4.0 setup through HA ingress and the repository installation, including
+- A full 0.5.0 setup through HA ingress and the repository installation, including
   learning/saving a physical button and checking the chosen real scene.
 - Importing the blueprint and checking it with a real LIGHT press in Dry run.
 - Beovision 14, Avant NG and other B&O models.

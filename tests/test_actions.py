@@ -7,7 +7,7 @@ from aiohttp import web
 from aiohttp.test_utils import TestServer
 from jinja2 import Environment
 
-from gateway.actions import ActionManager, FRESH, make_rule, owned_rule, rule_id
+from gateway.actions import ActionManager, FRESH, GUARD, LEGACY_FRESH, make_rule, owned_rule, rule_id
 from gateway.config import Options
 from gateway.ha import HAError, HomeAssistant
 from gateway.learning import ButtonLearning
@@ -27,7 +27,8 @@ class FakeHA:
                       "attributes": {"friendly_name": "Movie time"}}
 
     async def states(self):
-        return [self.scene, {"entity_id": "light.living_room", "state": "on",
+        return [self.scene, {"entity_id": "script.movie", "state": "off", "attributes": {"friendly_name": "Movie script"}},
+                {"entity_id": "script.needs_input", "state": "off", "attributes": {}}, {"entity_id": "light.living_room", "state": "on",
                             "attributes": {"friendly_name": "Living room"}},
                 {"entity_id": "light.offline", "state": "unavailable"}] + [
                     {"entity_id": "automation.test_" + key, "state": "on" if self.enabled.get(key, True) else "off",
@@ -35,6 +36,9 @@ class FakeHA:
 
     async def request(self, method, path, body=None):
         self.calls.append((method, path, copy.deepcopy(body)))
+        if path == "services":
+            return [{"domain": "script", "services": {
+                "movie": {"fields": {}}, "needs_input": {"fields": {"message": {"required": True}}}}}]
         if path.startswith("config/automation/config/"):
             key = path.rsplit("/", 1)[-1]
             if method == "GET":
@@ -70,7 +74,7 @@ class LearningTests(unittest.TestCase):
 
     def test_timeout_cancel_and_wrong_session_cannot_save(self):
         session = self.learn.start(TV)
-        self.now = 31
+        self.now = 61
         self.assertEqual(self.learn.status(), {"state": "idle"})
         for key, jid in ((session["id"], TV), ([], TV), ("unknown", OTHER)):
             with self.assertRaises(ValueError):
@@ -132,7 +136,8 @@ class LearningTests(unittest.TestCase):
             trigger = {"platform": "event", "event": {"data": {"received_at": received}}}
             self.assertEqual(template.render(now=lambda: now, trigger=trigger), str(expected))
         self.assertEqual(template.render(now=lambda: now), "False")
-        self.assertEqual(template.render(now=lambda: now, trigger={"platform": "manual"}), "False")
+        self.assertEqual(template.render(now=lambda: now, trigger={"platform": None}), "True")
+        self.assertEqual(template.render(now=lambda: now, trigger={"platform": "state"}), "True")
 
 
 class ActionTests(unittest.IsolatedAsyncioTestCase):
@@ -184,7 +189,7 @@ class ActionTests(unittest.IsolatedAsyncioTestCase):
                 await operation
         self.assertEqual(self.ha.configs, before)
         self.ha.configs[key]["description"] = "My existing rule"
-        self.assertEqual(await self.manager.list(TV), [])
+        self.assertTrue((await self.manager.list(TV))[0]["customized"])
 
     async def test_missing_wrong_domain_and_arbitrary_targets_are_rejected_without_writes(self):
         for kind, target in (("scene", "scene.missing"), ("scene", "light.living_room"),
@@ -194,6 +199,81 @@ class ActionTests(unittest.IsolatedAsyncioTestCase):
                 await self.manager.save(PRESS, "Movie", kind, target)
         self.assertTrue(all(method == "GET" for method, _, _ in self.ha.calls))
         self.assertNotEqual(rule_id(PRESS), rule_id({**PRESS, "peer_jid": OTHER}))
+
+    async def test_save_retry_recovers_config_written_before_reload(self):
+        config = make_rule(PRESS, "Movie", "scene", "scene.movie")
+        self.ha.configs[config["id"]] = config
+        states = self.ha.states
+        async def not_loaded_yet():
+            result = await states()
+            reloaded = any(path == "services/automation/reload" for _, path, _ in self.ha.calls)
+            return result if reloaded else [item for item in result if not item["entity_id"].startswith("automation.")]
+        self.ha.states = not_loaded_yet
+        saved = await self.manager.save(PRESS, "Movie", "scene", "scene.movie")
+        self.assertTrue(self.ha.enabled[saved["id"]])
+
+    async def test_paused_rule_stays_paused_after_edit_or_retry(self):
+        key = (await self.manager.save(PRESS, "Movie", "scene", "scene.movie"))["id"]
+        await self.manager.toggle(key, TV, False)
+        await self.manager.update(key, TV, "All off", "light_off", "light.living_room")
+        self.assertFalse(self.ha.enabled[key])
+        await self.manager.save(PRESS, "All off", "light_off", "light.living_room")
+        self.assertFalse(self.ha.enabled[key])
+
+    async def test_relearning_cannot_replace_existing_action(self):
+        await self.manager.save(PRESS, "Movie", "scene", "scene.movie")
+        before = copy.deepcopy(self.ha.configs)
+        with self.assertRaisesRegex(ValueError, "already set up"):
+            await self.manager.save(PRESS, "Other", "light_off", "light.living_room")
+        self.assertEqual(self.ha.configs, before)
+
+    async def test_custom_editor_route_needs_no_scene_and_has_no_actions(self):
+        self.ha.scene["state"] = "unavailable"
+        saved = await self.manager.save(PRESS, "Curtains", "custom", "")
+        config = self.ha.configs[saved["id"]]
+        self.assertEqual(config["actions"], [GUARD])
+        self.assertEqual(config["conditions"], [])
+        row = (await self.manager.list(TV))[0]
+        self.assertEqual(row["kind"], "custom")
+        self.assertFalse(row["customized"])
+        self.assertFalse(any("/trigger" in path or "services/scene/" in path for _, path, _ in self.ha.calls))
+
+    async def test_opening_existing_action_in_ha_cannot_erase_it(self):
+        key = (await self.manager.save(PRESS, "Movie", "scene", "scene.movie"))["id"]
+        before = copy.deepcopy(self.ha.configs)
+        with self.assertRaises(ValueError):
+            await self.manager.update(key, TV, "Movie", "custom", "")
+        self.assertEqual(self.ha.configs, before)
+
+    async def test_script_and_required_input_filter(self):
+        targets = await self.manager.targets()
+        self.assertEqual([item["id"] for item in targets["scripts"]], ["script.movie"])
+        key = (await self.manager.save(PRESS, "Movie", "script", "script.movie"))["id"]
+        self.assertEqual(self.ha.configs[key]["actions"][1:], [{"action": "script.turn_on", "target": {"entity_id": "script.movie"}}])
+        self.assertEqual((await self.manager.list(TV))[0]["target_name"], "Movie script")
+        with self.assertRaises(ValueError):
+            await self.manager.update(key, TV, "Input", "script", "script.needs_input")
+
+    async def test_description_and_extra_triggers_stay_visible_without_overwriting(self):
+        key = (await self.manager.save(PRESS, "Movie", "scene", "scene.movie"))["id"]
+        self.ha.configs[key]["description"] = "My own description"
+        self.ha.configs[key]["triggers"].insert(0, {"trigger": "state", "entity_id": "input_boolean.example"})
+        self.ha.configs[key]["triggers"].insert(0, {"trigger": "event", "event_type": "beoremote_telegram"})
+        row = (await self.manager.list(TV))[0]
+        self.assertTrue(row["customized"])
+        self.assertEqual(row["name"], "Movie")
+        with self.assertRaises(ValueError):
+            await self.manager.update(key, TV, "Replaced", "scene", "scene.movie")
+
+    async def test_legacy_rules_remain_editable_and_migrate_on_explicit_change(self):
+        config = make_rule(PRESS, "Movie", "scene", "scene.movie")
+        config["conditions"] = []
+        config["actions"][0] = {"condition": "template", "value_template": LEGACY_FRESH}
+        self.ha.configs[config["id"]] = config
+        self.assertFalse((await self.manager.list(TV))[0]["customized"])
+        await self.manager.update(config["id"], TV, "Movie", "scene", "scene.movie")
+        self.assertEqual(self.ha.configs[config["id"]]["actions"][0], GUARD)
+        self.assertEqual(len(self.ha.configs[config["id"]]["actions"]), 2)
 
 
 class HAClientTests(unittest.IsolatedAsyncioTestCase):
@@ -238,6 +318,7 @@ class ActionWebTests(test_setup.SetupWebTests):
         status = await (await self.client.get("/api/status")).json()
         self.assertEqual(status["learning"]["state"], "captured")
         self.assertNotIn("data_hex", status["learning"])
+        self.assertEqual(status["learning"]["button_id"], rule_id(PRESS))
         saved = await post("/api/actions/save", {"session_id": learned["id"], "name": "Movie", "kind": "scene", "target": "scene.movie"})
         self.assertEqual(self.controller.learning.status()["state"], "idle")
         await post("/api/actions/update", {"id": saved["id"], "name": "All off", "kind": "light_off", "target": "light.living_room"})

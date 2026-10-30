@@ -48,14 +48,27 @@ press a LIGHT function: if it is received, no service-menu change is needed.
 ## Saved button actions
 
 The app creates ordinary Home Assistant automations. They survive an app restart
-or reinstall. Saving a learned button again updates its action. Change, Pause,
-Enable and Remove manage unchanged actions created by the app. Automations
-customized in HA are left for the HA editor to manage.
+or reinstall. Relearning a known button shows its existing mapping. Change,
+Pause, Enable and Remove manage unchanged actions. Rules customized in HA stay
+visible while their matching button trigger remains, even after changing the
+description or adding triggers; manage their contents in the HA editor.
 
-Listening for a button withholds that TV's remote events. The captured press and
-held repeats stay withheld while choosing an action. Saving stores and enables
-the automation without running it. A new, fresh press runs it afterwards.
-Listening expires after 30 seconds; a captured button expires after five minutes.
+Choose in Home Assistant creates the button's automation with no device action
+and opens it in HA. Add actions and save there. If you leave without doing so,
+the button stays in the list as No actions yet. Continue through its Choose
+actions link, or remove it. Opening an existing button in HA preserves its actions.
+Run a script uses script.turn_on; scripts with required inputs use the HA editor.
+
+Listening withholds that TV's remote events. The captured press and held repeats
+stay withheld while choosing an action. Saving never runs it. New mappings are
+enabled; editing an existing one preserves its enabled/paused state. Listening
+expires after 60 seconds; a captured button expires after five minutes.
+
+New or explicitly changed rules check freshness at the start of the action
+sequence, including queued runs. HA's manual Run actions is allowed; unrelated
+triggers added in HA can run normally. Old rules keep their original manual-test
+behavior until explicitly changed in the app. The freshness step has a readable
+alias in HA; keep it to reject remote events delayed by more than two seconds.
 
 ## Options
 
@@ -77,7 +90,7 @@ settings that are not already saved. Normal setup does not need these.
 Save and restart after changes. The app uses host networking for discovery and TV
 connections. It requests `homeassistant_api` to post events using the built-in
 Supervisor token: no personal access token is needed. The setup page also uses
-that access to read scenes/lights, save its own automations and enable or disable
+that access to read scenes, lights and scripts, save its own automations and enable or disable
 them through the same Core API used by the HA automation editor. Protection mode
 can stay enabled. No host files or Docker socket are mounted. The setup page is
 served through HA ingress; direct LAN requests are rejected. It only accepts the
@@ -101,9 +114,9 @@ endpoint without requesting additional Supervisor privileges.
   and inspect the `received`/`suppressed` counters in `gateway_status`.
 - **No button received:** make sure the TV shows connected and has this gateway
   selected, then retry and press an actual LIGHT function.
-- **No scenes/lights:** add them in Home Assistant, then click Refresh actions.
+- **No scenes/lights:** add them in Home Assistant, then click Refresh.
 - **Saved but no action:** enable the action, release the button and press it
-  again. Check its trace under More options if needed.
+  again. Check its trace under Open in Home Assistant if needed.
 - **Runs twice:** turn off the older blueprint/manual automation for that button.
 - **Cannot save:** check that HA Core is available and its automation editor works.
   A write may have succeeded before a connection was lost; refresh the list or
@@ -127,8 +140,8 @@ remote labels, lighting or existing automations.
 
 ## Events and the optional blueprint
 
-The guided action setup above is enough for scenes and lights-off. The details
-below are for other actions and troubleshooting.
+The normal editor supports any HA action. The raw event details below are for
+manual automations and troubleshooting.
 
 ### Inspect raw events
 
@@ -163,8 +176,8 @@ Under **Settings → Automations & scenes → Blueprints → Import**, import:
 https://github.com/jwlangendoen/beoremote-gateway/blob/main/blueprints/automation/beoremote_light_action.yaml
 ```
 
-Create one automation per button. Under **Existing automations and more options**
-on the setup page, use **Import blueprint** and **Copy TV identity**. Paste the identity into the blueprint, select the LIGHT button
+Create one automation per button. Use **Import blueprint** under Automations and advanced setup and **Copy TV
+identity** under Connection settings. Paste the identity into the blueprint, select the LIGHT button
 whose payload you observed, and choose your action, such as activating a scene.
 Leave **Dry run** enabled initially. Press the real button and inspect the trace:
 a fresh matching event stops at the dry-run step before executing your action.
