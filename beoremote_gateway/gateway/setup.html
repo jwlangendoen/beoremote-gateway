@@ -35,7 +35,7 @@ code { font-size:13px; overflow-wrap:anywhere; } [hidden] { display:none !import
   <p id="notice" role="alert" hidden></p>
   <section aria-labelledby="connection-title">
     <span class="badge" id="state">Loading…</span>
-    <h2 id="connection-title">Connect your TV</h2>
+    <h2 id="connection-title">1. Choose your TV</h2>
     <p id="connection">Your TV and Home Assistant need to be on the same local network.</p>
     <p id="manual" hidden>In the app's Configuration tab, set <strong>Mode</strong> to <strong>auto</strong>, save and restart. Existing manual settings are kept.</p>
     <div id="chooser">
@@ -50,12 +50,21 @@ code { font-size:13px; overflow-wrap:anywhere; } [hidden] { display:none !import
     <details id="technical" hidden><summary>Connection details</summary><p><code id="details"></code></p></details>
   </section>
   <section aria-labelledby="remote-title">
-    <h2 id="remote-title">Select the gateway on your Horizon</h2>
-    <p>In the TV's gateway menu, select <strong id="gateway-name">Home Assistant Light</strong>. The status above shows when the TV connects.</p>
+    <h2 id="remote-title">2. Select the gateway on your Horizon</h2>
+    <p>Keep this app running with your TV selected. Then use your Beoremote One to open the gateway list on the TV:</p>
+    <ol>
+      <li>With the TV on any source, open <strong>MENU → Settings</strong>.</li>
+      <li>Highlight <strong>Service Menu</strong> and press the <strong>red button before the centre button</strong>.</li>
+      <li>Open <strong>Customer Service Menu → Settings → BeoLink Gateway</strong>.</li>
+      <li>Select <strong id="gateway-name">Home Assistant Gateway</strong> and confirm with the centre button.</li>
+      <li>Return here and wait for <strong>TV connected</strong>, then add your first LIGHT button below.</li>
+    </ol>
+    <p class="muted">Finding the TV here does not select the gateway on the TV. If the gateway is missing, check that you clicked Use this TV, then close and reopen the TV's gateway list.</p>
+    <details><summary>Gateway name and older installations</summary><p>New installs use <strong>Home Assistant Gateway</strong>. Updates keep your saved name. To rename it, change <strong>Name in the TV menu</strong> in the app's Configuration tab, save and restart, then reopen the TV's gateway list. Select the name shown above.</p></details>
     <p class="muted">The gateway won't change TV sources or turn on lights by itself. Your automations decide what a button does.</p>
   </section>
   <section aria-labelledby="actions-title">
-    <h2 id="actions-title">Choose your LIGHT actions</h2>
+    <h2 id="actions-title">3. Choose your LIGHT actions</h2>
     <p>Teach the app a button, then choose what it should do.</p>
     <p id="action-note" class="muted" role="status">Connect your TV to get started.</p>
     <p id="saved" role="status" hidden></p>

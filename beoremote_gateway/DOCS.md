@@ -1,4 +1,4 @@
-# Beoremote Gateway 0.4.0
+# Beoremote Gateway 0.4.1
 
 Receive Beoremote One LIGHT commands through a Beovision Horizon and use them in
 Home Assistant. Experimental: only Horizon has been tested. This is a network
@@ -17,12 +17,21 @@ The observed BeoCore connection has no TLS or password exchange. Keep it inside 
 trusted LAN; do not expose it to the internet. The IP/JID checks restrict peers but
 are not cryptographic authentication.
 
-## 1. Find your TV automatically
+## 1. Start the gateway in Home Assistant
 
-Start the app and click **Open Web UI**. The setup page looks for B&O products on
-your local network. Wake the Horizon if it does not appear, choose your TV and
-click **Use this TV**. Other B&O speakers may also appear: choose the TV you want
-to use. Nothing is selected automatically, even when only one product is found.
+1. Install **Beoremote Gateway** from the app store after adding this repository.
+2. Open the app's **Info** tab and click **Start**. Leave **Mode** set to **auto**
+   for a new installation.
+3. Click **Open Web UI** and wake the Horizon. Click **Find my TV** if needed.
+4. Select your TV from the discovered products and click **Use this TV**.
+   Other B&O speakers may also appear; choose the TV you want to use.
+5. Keep the app running and continue with the TV steps below. **Waiting for the
+   TV to connect** is expected at this point.
+
+Do these steps before opening the gateway list on the TV. Starting the app alone
+is not enough: choosing your TV starts the receiver and makes the gateway visible
+on the network. Nothing is selected automatically, even when only one product is
+found. Finding the TV in Home Assistant does not select the gateway on the TV.
 
 The app finds both the TV identity and the outgoing Home Assistant LAN address.
 You do not need a terminal, network service browser or personal access token.
@@ -45,16 +54,56 @@ the receiver off while leaving the setup page available.
 If an older local gateway is still installed, stop it before using the same port
 and gateway identity in the new installation.
 
-## 2. Connect the Horizon
+## 2. Select the gateway on the Beovision Horizon
 
-After choosing the TV, the app announces itself and enables HA event publishing.
-In the TV's gateway menu, select the name shown on the setup page (the existing
-default is **Home Assistant Licht**). Note the previous destination before changing
-it. The menu name/location can vary by firmware.
+Use your normal Bluetooth-paired Horizon product on the Beoremote One for this
+step. The separate infrared profile mentioned later is only for renaming LIGHT
+functions, not for connecting the TV to this gateway.
 
-The setup page shows **TV connected** when the Horizon opens its connection.
-Discovery finds the device; selecting the gateway on the TV routes the button
-presses. Enable **Start on boot** and **Watchdog** once your setup is working.
+With the app running and your TV selected:
+
+1. Turn on the TV to any source and open the main menu with **MENU**.
+2. Select **Settings** and press the **centre button**.
+3. Highlight **Service Menu**. Before opening it with the centre button, press
+   the **red button**. This reveals the menu containing **Customer Service Menu**.
+4. Select **Customer Service Menu** and open it with the centre button.
+5. Open **Settings → BeoLink Gateway**. Note the previous gateway selection if
+   there is one.
+6. From the available gateways, select **Home Assistant Gateway** and confirm
+   with the centre button. If you set a different name in the app, select the name
+   shown under **Select the gateway on your Horizon** in its setup page instead.
+7. Leave the TV menus and return to the app's setup page. Wait for **TV connected**
+   before adding a LIGHT action.
+
+In one line: **MENU → Settings → highlight Service Menu → red button → Customer
+Service Menu → Settings → BeoLink Gateway → Home Assistant Gateway**.
+
+The service-menu route is described in the
+[BeoLiving Horizon connection guide](https://khimo.github.io/bli-guides/manuals/bli-connect-to-TV#beovision-horizon).
+That guide connects a BeoLiving device; here you choose this app's name from the
+same gateway list. The LIGHT setup continues in Home Assistant below; there is
+no BeoLiving login or HOME CONTROL panel to set up for this app. Menu labels can
+vary with the TV language or firmware.
+
+If the gateway is missing, check that the app is running, **Use this TV** was
+selected and both devices are on the same local network. Close and reopen the
+TV's gateway list after the app starts advertising. Discovery alone does not
+route button presses: you must explicitly choose the gateway on the TV.
+
+### Name shown on the TV
+
+**Home Assistant Gateway** is the default name in the TV list from 0.4.1.
+The app and repository are called **Beoremote Gateway**.
+
+Updates keep existing app options. If your TV still lists **Home Assistant
+Licht**, change **Configuration → Name in the TV menu** to **Home Assistant
+Gateway**, save and restart the app, then reopen the TV's gateway list. In Dutch,
+that field is called **Naam in het tv-menu**. You can also keep your own name;
+always select the name shown on the setup page. Renaming the gateway keeps your
+saved button actions.
+
+Once your setup is working, enable **Start on boot** and **Watchdog** in the app
+so it is available after restarting Home Assistant.
 
 ## 3. Give a button an action
 
@@ -136,7 +185,7 @@ needed when that profile is not already in the remote's product list.
 | `horizon_address` | Manual TV IPv4 address; ignored in auto mode. |
 | `horizon_jid` | Manual TV identity; ignored in auto mode. |
 | `advertise_address` | Manual HA LAN IPv4 address; detected automatically in auto mode. |
-| `gateway_name` | Name in the TV gateway menu. Existing Dutch default retained for updates. |
+| `gateway_name` | Name in the TV gateway list; default Home Assistant Gateway. Existing saved names are kept on update. |
 | `gateway_jid` | Stable identity, distinct from the TV and other gateways. |
 | `xmpp_port` | TCP listener port; default 5222. |
 | `publish_ha_events` | Manual modes only. Auto setup enables events after you choose a TV. |
@@ -158,7 +207,9 @@ endpoint without requesting additional Supervisor privileges.
 - **No TV in the setup page:** wake it and search again. Check multicast filtering
   and that HA and the TV are on the same LAN. A discovery result alone does not
   establish support for another model.
-- **No gateway discovery on the TV:** check multicast filtering and port conflicts.
+- **No gateway in the TV list:** start the app, choose the TV with Use this TV,
+  then reopen Customer Service Menu → Settings → BeoLink Gateway. Check multicast
+  filtering and port conflicts if it is still missing.
   `gateway_discovery_retry` means advertising will retry with increasing delays.
 - **Advertised, no stream:** check the TV's selected gateway, IP/JID and TCP port.
   Wake the TV; standby has not been verified.

@@ -25,7 +25,7 @@ class Options:
     horizon_address: str = ""
     horizon_jid: str = ""
     advertise_address: str = ""
-    gateway_name: str = "Home Assistant Licht"
+    gateway_name: str = "Home Assistant Gateway"
     gateway_jid: str = "homeassistant.light.gateway@products.bang-olufsen.com"
     xmpp_port: int = 5222
     publish_ha_events: bool = False

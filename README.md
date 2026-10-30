@@ -37,15 +37,26 @@ and both devices on the same trusted local IPv4 network.
 [![Add repository to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fjwlangendoen%2Fbeoremote-gateway)
 
 1. Add the repository and install **Beoremote Gateway** from the app store.
-2. Start the app, click **Open Web UI**, and choose your TV from the discovered
-   products. The [setup guide](beoremote_gateway/DOCS.md) covers the TV menu step.
-3. Click **Add a button**, press a LIGHT function on your remote, give it a name
+2. Click **Start**, then **Open Web UI**. Wake your TV, click **Find my TV**,
+   choose it and click **Use this TV**. Keep the app running.
+3. On the Horizon, open **MENU → Settings**, highlight **Service Menu** and press
+   the **red button before the centre button**. Open **Customer Service Menu →
+   Settings → BeoLink Gateway** and select **Home Assistant Gateway** (or the name
+   shown in the app). Return to the app and wait for **TV connected**.
+4. Click **Add a button**, press a LIGHT function on your remote, give it a name
    and choose a scene or lights to turn off. Save, release the button and press it
    again to try it. No blueprint or device codes needed.
 
-The gateway starts receiving after you choose a TV. No IP addresses or long device
-identities to type. If you are upgrading from 0.2.2, set **Mode** to **auto** once
-and restart. Existing manual configurations are preserved.
+Do the Home Assistant steps first: the app must be running with your TV selected
+before you can choose it in the TV's gateway list. Finding the TV in the app does
+not select the gateway on the TV. The [step-by-step guide](beoremote_gateway/DOCS.md)
+includes the full menu route and what to do if the gateway does not appear.
+
+No IP addresses or long device identities to type. If you are upgrading from
+0.2.2, set **Mode** to **auto** once and restart. Existing manual configurations
+are preserved. Older installs may still show **Home Assistant Licht**; change
+**Name in the TV menu** to **Home Assistant Gateway**, save and restart if you
+want the new name. The setup page always shows the name to select.
 
 Want your own names in the LIGHT menu? On the Horizon you first need to show or
 add a separate Beovision **infrared** profile on the remote, then use its LIGHT

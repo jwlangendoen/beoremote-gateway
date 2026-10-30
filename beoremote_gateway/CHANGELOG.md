@@ -1,3 +1,12 @@
+# 0.4.1
+
+- Spell out setup in order: start the app, choose the TV, open the Horizon's
+  Customer Service Menu and select the gateway, then add LIGHT actions.
+- Add the red-button entry step and the Settings → BeoLink Gateway menu route
+  to the setup page and guides, with a link to the BeoLiving instructions.
+- Use Home Assistant Gateway as the default name in the TV list. Existing saved
+  names and custom names stay as they are; the guide explains how to rename them.
+
 # 0.4.0
 
 - Add LIGHT buttons directly in the app: press a button, name it and choose a

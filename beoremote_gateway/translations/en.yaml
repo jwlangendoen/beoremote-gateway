@@ -18,7 +18,7 @@
     },
     "gateway_name": {
       "name": "Name in the TV menu",
-      "description": "Select this name in the Horizon gateway menu after setup."
+      "description": "Name shown under Customer Service Menu → Settings → BeoLink Gateway. New installs use Home Assistant Gateway; saved names are kept on update."
     },
     "gateway_jid": {
       "name": "Gateway identity (advanced)",
