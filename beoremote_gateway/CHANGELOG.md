@@ -1,3 +1,15 @@
+# 0.6.0-dev5 — development only
+
+- Add the TV Support installer and source editor to the existing flow.
+- Configure local TV apps or existing HDMI inputs, with optional native HA actions.
+- Save without playback, explicitly test on TV, change, remove or restore.
+- Keep signed helper source/artifact together; private signing keys stay local.
+- Protect management with DUMP, native broadcasts with DEVICE_POWER, and TV
+  mutations with selected identity, ownership and revision checks.
+- Preserve private native setting originals and recover interrupted plans.
+- Retire the verified previous helper only when explicitly replacing it, without migration.
+- Keep hardware testing and rollout deferred; nothing is installed by this commit.
+
 # 0.6.0-dev4
 
 - Explain setup in terms of button actions and TV sources; remove player-specific

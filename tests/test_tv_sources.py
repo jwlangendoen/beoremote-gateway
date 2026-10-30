@@ -1,0 +1,307 @@
+import asyncio
+import base64
+import copy
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import AsyncMock
+
+from jinja2 import Environment
+
+from gateway.sources import AdbInventory
+from gateway.actions import ActionManager
+from gateway.tv_sources import TVSources, automation, automation_id, validate_entry
+from test_actions import FakeHA
+from test_gateway import TV
+from test_sources import WebSourcesTests
+
+
+class SourceHA(FakeHA):
+    async def request(self, method, path, body=None):
+        if method == "GET" and path == "config":
+            return {"components": ["webhook"]}
+        return await super().request(method, path, body)
+
+
+class FakeADB:
+    def __init__(self):
+        self.config = {"entries": [], "revision": ""}
+        self.operation = ""
+        self.calls = []
+        self.failure = None
+
+    def status(self):
+        return {"tv": TV, "state": "ready", "version": "0.1.0", "owner": self.config.get("owner", ""),
+                "revision": self.config["revision"], "operation": self.operation,
+                "entries": [{k: v for k, v in entry.items() if k != "callback"} for entry in self.config["entries"]],
+                "slots": [{"slot": n, "free": not any(e["slot"] == n for e in self.config["entries"])} for n in range(8)],
+                "inputs": [{"id": "HDMI1", "name": "Console"}, {"id": "HDMI2", "name": "Media player"}],
+                "apps": [{"package": "org.example.player", "name": "Player", "system": False}], "legacy_sources": 0}
+
+    async def helper_call(self, address, method, data=None):
+        self.calls.append((method, copy.deepcopy(data)))
+        if method == "status":
+            return self.status()
+        if method == "backup":
+            return {"config": copy.deepcopy(self.config), "originals": {}}
+        if method == "apply":
+            if data["expected"] != self.config["revision"]:
+                raise ValueError("revision conflict")
+            if self.failure == "before":
+                self.failure = None
+                raise OSError("connection lost")
+            self.config = copy.deepcopy(data["config"])
+            self.operation = data["operation"]
+            if self.failure == "after":
+                self.failure = None
+                raise OSError("reply lost after commit")
+            return {"operation": self.operation}
+        if method in {"test", "refresh"}:
+            self.operation = data["operation"]
+            return {"operation": self.operation}
+        raise AssertionError(method)
+
+
+def source(**changes):
+    return {"id": "", "name": "Player", "kind": "app", "target": "org.example.player", "action_kind": "none", "action_target": "", **changes}
+
+
+class ADBManagementTests(unittest.IsolatedAsyncioTestCase):
+    async def test_helper_protocol_has_no_free_commands_or_implicit_source_test(self):
+        with tempfile.TemporaryDirectory() as directory:
+            adb = AdbInventory(directory)
+            adb.port = 12345
+            response = base64.b64encode(json.dumps({"state": "ready"}).encode()).decode()
+            adb._command = AsyncMock(return_value="Result: Bundle[{result=" + response + "}]")
+            self.assertEqual(await adb.helper_call("192.0.2.10", "status"), {"state": "ready"})
+            self.assertEqual(adb._command.call_args.args[:5], ("-P", "12345", "-s", "192.0.2.10:5555", "shell"))
+            self.assertIn("content://nl.beoremote.tvhelper.control", adb._command.call_args.args)
+            with self.assertRaises(ValueError):
+                await adb.helper_call("192.0.2.10", "reboot")
+            self.assertEqual(adb._command.await_count, 1)
+
+    async def test_installer_uses_only_verified_bundled_apk_and_preserves_data(self):
+        with tempfile.TemporaryDirectory() as directory:
+            adb = AdbInventory(directory)
+            adb.port = 12345
+            async def command(*arguments, **kwargs):
+                self.assertEqual(arguments[:7], ("-P", "12345", "-s", "192.0.2.10:5555", "install", "-f", "-r"))
+                self.assertTrue(Path(arguments[7]).read_bytes().startswith(b"PK"))
+                return "Success\n"
+            adb._command = AsyncMock(side_effect=command)
+            await adb.install_helper("192.0.2.10")
+            self.assertEqual(adb._command.await_count, 1)
+
+
+class ValidationTests(unittest.TestCase):
+    def setUp(self):
+        self.status = FakeADB().status()
+
+    def test_only_discovered_apps_and_hdmi_are_accepted(self):
+        for changes in ({"target": "other.app"}, {"kind": "hdmi", "target": "HDMI4"}, {"kind": "command", "target": "reboot"}, {"target": []}):
+            with self.assertRaises(ValueError):
+                validate_entry(source(**changes), self.status)
+        self.assertEqual(validate_entry(source(kind="hdmi", target="HDMI1"), self.status)["target"], "HDMI1")
+
+    def test_slots_are_allocated_server_side_and_never_stolen(self):
+        self.status["slots"] = [{"slot": 0, "free": False}, {"slot": 1, "free": True}]
+        self.assertEqual(validate_entry(source(), self.status)["slot"], 1)
+        self.status["slots"][1]["free"] = False
+        with self.assertRaises(ValueError):
+            validate_entry(source(), self.status)
+        with self.assertRaises(ValueError):
+            validate_entry({**source(), "slot": 0}, self.status)
+
+    def test_names_and_existing_source_identity_are_bounded(self):
+        for changes in ({"name": ""}, {"name": "x" * 33}, {"name": "bad\nname"}, {"id": "ATV_NETFLIX"}):
+            with self.assertRaises(ValueError):
+                validate_entry(source(**changes), self.status)
+
+    def test_webhook_guard_rejects_stale_other_tv_and_other_source(self):
+        entry = source(id="BGW_123456789abc", action_kind="script", action_target="script.movie")
+        config = automation(TV, entry, "a" * 64)
+        template = Environment().from_string(config["actions"][0]["value_template"])
+        valid = {"source": entry["id"], "tv": TV, "created_at": 99}
+        def run(data):
+            return template.render(trigger={"platform": "webhook", "json": data}, now=lambda: type("Now", (), {"timestamp": lambda _: 100})()) == "True"
+        self.assertTrue(run(valid))
+        for changes in ({"created_at": 94}, {"created_at": 101}, {"tv": "other"}, {"source": "BGW_abcdefabcdef"}):
+            self.assertFalse(run({**valid, **changes}))
+        self.assertEqual(config["mode"], "single")
+        self.assertTrue(config["triggers"][0]["local_only"])
+        self.assertEqual(config["triggers"][0]["allowed_methods"], ["POST"])
+
+
+class EditorTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.ha = SourceHA()
+        self.editor = TVSources(self.temp.name, ActionManager(self.ha))
+        self.adb = FakeADB()
+
+    async def asyncTearDown(self):
+        self.temp.cleanup()
+
+    async def save(self, **changes):
+        return await self.editor.save(self.adb, "192.0.2.10", "192.0.2.20", TV, self.adb.config["revision"], source(**changes))
+
+    async def test_saving_local_app_registers_without_playback_or_ha_action(self):
+        status = await self.save()
+        self.assertEqual(len(status["entries"]), 1)
+        self.assertFalse(self.ha.configs)
+        self.assertFalse(any(method == "test" for method, _ in self.adb.calls))
+        self.assertEqual(self.adb.config["entries"][0]["callback"], "")
+        self.assertEqual(self.editor.path(TV).stat().st_mode & 0o777, 0o600)
+        self.assertTrue(status["can_restore"])
+
+    async def test_script_uses_limited_webhook_without_exposing_it_to_browser(self):
+        result = await self.save(kind="hdmi", target="HDMI2", action_kind="script", action_target="script.movie")
+        private = self.editor.load(TV)["entries"][0]
+        key = automation_id(TV, private["id"])
+        self.assertEqual(self.ha.configs[key]["actions"][1]["action"], "script.turn_on")
+        self.assertNotIn(private["webhook"], json.dumps(result))
+        self.assertNotIn("callback", result["entries"][0])
+        self.assertTrue(result["entries"][0]["edit_path"].endswith(key))
+        self.assertFalse(any(path.startswith("services/script/") for _, path, _ in self.ha.calls))
+
+    async def test_missing_webhook_integration_does_not_create_an_unusable_source(self):
+        self.editor.actions.ha = FakeHA()
+        with self.assertRaisesRegex(ValueError, "webhook integration"):
+            await self.save(action_kind="script", action_target="script.movie")
+        self.assertFalse(self.adb.config["entries"])
+        self.assertFalse(any(method == "apply" for method, _ in self.adb.calls))
+
+    async def test_custom_action_creates_empty_native_ha_editor(self):
+        result = await self.save(action_kind="custom")
+        config = next(iter(self.ha.configs.values()))
+        self.assertEqual(len(config["actions"]), 1)
+        self.assertIn("edit_path", result["entries"][0])
+
+    async def test_no_free_slot_is_rejected_before_any_automation_write(self):
+        for _ in range(8):
+            await self.save()
+        before = len(self.ha.calls)
+        with self.assertRaisesRegex(ValueError, "no free source slot"):
+            await self.save(action_kind="script", action_target="script.movie")
+        self.assertEqual(len(self.ha.calls), before)
+        self.assertEqual(len(self.adb.config["entries"]), 8)
+
+    async def test_stale_revision_is_rejected_before_changes(self):
+        await self.save()
+        before = copy.deepcopy(self.adb.config)
+        with self.assertRaises(ValueError):
+            await self.editor.save(self.adb, "192.0.2.10", "192.0.2.20", TV, "", source())
+        self.assertEqual(self.adb.config, before)
+
+    async def test_foreign_gateway_and_tv_are_refused(self):
+        self.adb.config["owner"] = "b" * 32
+        with self.assertRaisesRegex(ValueError, "another gateway"):
+            await self.editor.status(self.adb, "192.0.2.10", TV)
+        self.adb.config.pop("owner")
+        with self.assertRaisesRegex(ValueError, "different TV"):
+            await self.editor.status(self.adb, "192.0.2.10", "other")
+
+    async def test_save_failure_keeps_recoverable_backup_and_never_tests(self):
+        self.adb.failure = "before"
+        with self.assertRaisesRegex(ValueError, "not confirmed"):
+            await self.save(action_kind="script", action_target="script.movie")
+        self.assertEqual(self.adb.config["entries"], [])
+        self.assertTrue(self.editor.path(TV, True).exists())
+        # Keep an uncertain capability until explicit recovery, rather than guessing
+        # whether the TV applied a change whose reply was lost.
+        self.assertTrue(self.ha.configs)
+        await self.editor.restore(self.adb, "192.0.2.10", TV, "")
+        self.assertFalse(self.ha.configs)
+        self.assertFalse(any(method == "test" for method, _ in self.adb.calls))
+
+    async def test_lost_reply_after_commit_is_reconciled_without_deleting_action(self):
+        self.adb.failure = "after"
+        result = await self.save(action_kind="script", action_target="script.movie")
+        self.assertEqual(len(result["entries"]), 1)
+        self.assertTrue(self.ha.configs)
+        self.assertEqual(len(self.editor.load(TV)["entries"]), 1)
+
+    async def test_edited_ha_action_is_preserved_but_not_overwritten(self):
+        result = await self.save(action_kind="script", action_target="script.movie")
+        row = result["entries"][0]
+        key = automation_id(TV, row["id"])
+        self.ha.configs[key]["description"] = "User edited in HA"
+        with self.assertRaisesRegex(ValueError, "edited in Home Assistant"):
+            await self.save(id=row["id"], action_kind="scene", action_target="scene.movie")
+        await self.save(id=row["id"], name="New label", action_kind="script", action_target="script.movie")
+        self.assertEqual(self.ha.configs[key]["description"], "User edited in HA")
+
+    async def test_edit_preserves_a_paused_ha_automation(self):
+        result = await self.save(action_kind="script", action_target="script.movie")
+        row = result["entries"][0]
+        key = automation_id(TV, row["id"])
+        self.ha.enabled[key] = False
+        await self.save(id=row["id"], action_kind="scene", action_target="scene.movie")
+        self.assertFalse(self.ha.enabled[key])
+
+    async def test_remove_customized_automation_keeps_user_work(self):
+        result = await self.save(action_kind="custom")
+        row = result["entries"][0]
+        key = automation_id(TV, row["id"])
+        self.ha.configs[key]["description"] = "User work"
+        await self.editor.remove(self.adb, "192.0.2.10", TV, self.adb.config["revision"], row["id"])
+        self.assertIn(key, self.ha.configs)
+        self.assertEqual(self.adb.config["entries"], [])
+
+    async def test_restore_recovers_both_source_and_action_configuration(self):
+        result = await self.save(action_kind="script", action_target="script.movie")
+        row = result["entries"][0]
+        original = copy.deepcopy(self.ha.configs)
+        await self.save(id=row["id"], name="Other", action_kind="scene", action_target="scene.movie")
+        restored = await self.editor.restore(self.adb, "192.0.2.10", TV, self.adb.config["revision"])
+        self.assertEqual(restored["entries"][0]["name"], "Player")
+        self.assertEqual(self.ha.configs, original)
+
+    async def test_restore_refuses_new_user_edits_in_ha(self):
+        await self.save(action_kind="script", action_target="script.movie")
+        key = next(iter(self.ha.configs))
+        self.ha.configs[key]["description"] = "New user edit"
+        with self.assertRaisesRegex(ValueError, "changed in Home Assistant"):
+            await self.editor.restore(self.adb, "192.0.2.10", TV, self.adb.config["revision"])
+
+    async def test_test_is_explicit_and_only_for_a_saved_source(self):
+        with self.assertRaises(ValueError):
+            await self.editor.test(self.adb, "192.0.2.10", TV, "BGW_123456789abc")
+        result = await self.save()
+        self.assertEqual(await self.editor.test(self.adb, "192.0.2.10", TV, result["entries"][0]["id"]), {"sent": True})
+        self.assertEqual([method for method, _ in self.adb.calls].count("test"), 1)
+
+
+class EditorWebTests(WebSourcesTests):
+    async def test_new_operations_require_current_admin_and_page_token(self):
+        self.controller.source_operation = AsyncMock(return_value={"ok": True})
+        bodies = {"install": {"retire_old": False}, "refresh": {}, "targets": {}, "save": {"revision": "", "entry": {}},
+                  "remove": {"revision": "", "id": "BGW_123456789abc"}, "restore": {"revision": ""}, "test": {"id": "BGW_123456789abc"}}
+        for operation, body in bodies.items():
+            response = await self.client.post("/api/sources/" + operation, json=body)
+            self.assertEqual(response.status, 403)
+        self.admin.return_value = False
+        response = await self.client.post("/api/sources/install", json={"tv_jid": TV, **bodies["install"]}, headers=self.headers)
+        self.assertEqual(response.status, 403)
+        self.controller.source_operation.assert_not_awaited()
+        self.admin.return_value = True
+        for operation, body in bodies.items():
+            response = await self.client.post("/api/sources/" + operation, json={"tv_jid": TV, **body}, headers=self.headers)
+            self.assertEqual(response.status, 200)
+
+    async def test_stale_tv_page_cannot_install_or_replace_a_helper(self):
+        await self.controller.scan()
+        await self.controller.select(TV)
+        await self.controller.set_sources_enabled(True)
+        with self.assertRaisesRegex(ValueError, "selected TV changed"):
+            await self.controller.source_operation("install", {"tv_jid": "other", "retire_old": True})
+        self.adb.install_helper.assert_not_awaited()
+        self.adb.retire_legacy.assert_not_awaited()
+
+    async def test_unscoped_commands_and_malformed_inputs_are_rejected(self):
+        self.controller.source_operation = AsyncMock()
+        for operation, body in (("shell", {}), ("install", {"retire_old": "true"}), ("test", {"id": "other"}), ("restore", {"revision": []}), ("save", {"revision": "", "entry": []})):
+            response = await self.client.post("/api/sources/" + operation, json={"tv_jid": TV, **body}, headers=self.headers)
+            self.assertEqual(response.status, 400)
+        self.controller.source_operation.assert_not_awaited()

@@ -165,6 +165,35 @@ updates remained enabled. One Beoremote installation remained, with all five
 existing button actions present. The temporary management terminal was stopped.
 The 0.6.0 development changes are separate from that installed repository version.
 
+## Source editor and TV Support (0.6.0-dev5, development only)
+
+On 30 October 2026, 155 local Python tests passed. They cover fixed management
+operations, the bundled installer, slot allocation, current TV/revision/owner
+checks, private backups, save without playback, explicit tests, HA customizations,
+ambiguous replies, missing webhook integration and paused-action preservation.
+The helper built against Android API 28 with minimum API 21 and Java 8; its signed
+artifact, source digest and restricted manifest were checked. Pure Java tests
+cover identity, HDMI handoff, app routing, duplicate suppression, cancellation
+and request expiry.
+
+A fresh isolated Home Assistant Core 2026.10.4 with networking disabled accepted
+the source webhook automation and activated only a virtual test script on a fresh
+matching request. Wrong TV/source identities and stale/future timestamps did not
+activate it. Saving executed nothing; editing, removing and restoring preserved
+paused state. The minimal fixture explicitly loaded the webhook integration;
+the gateway now checks its availability before linking an HA action.
+
+The local browser fixture covered connection, explicit previous-helper replacement,
+installation, a local-app source, an HDMI source with a script, saving and requesting
+a test. All device and HA operations there were simulated. The last native browser
+confirmation could not be completed after the Mac locked; removal and restoration
+were independently checked through the editor and real isolated Core APIs.
+
+At the user's request, no further household TV or HA operations were performed.
+The new APK has not been installed on the TV, and no rollout or merge to the
+auto-update branch was performed. Hardware ADB, actual registration, native
+playback/standby and physical remote behavior remain for the integral test.
+
 ## Still to try
 
 - A full 0.5.0 setup through HA ingress and the repository installation, including

@@ -72,29 +72,34 @@ dialog::backdrop { background:#0006; } #learn-note { margin-bottom:16px; } #dial
     <button id="reload-actions" type="button" disabled>Refresh</button>
   </section>
   <section id="sources-section" aria-labelledby="sources-title" hidden>
-    <div class="heading"><h2 id="sources-title">TV sources</h2><span class="badge">Preview</span></div>
-    <p class="muted">Find installed apps on your TV. Adding or changing source shortcuts is not available yet.</p>
-    <label class="source-choice"><input id="sources-enabled" type="checkbox">Show installed TV apps</label>
+    <div class="heading"><h2 id="sources-title">TV sources</h2><span class="badge">Experimental</span></div>
+    <p class="muted">Add shortcuts to TV apps or HDMI devices. You can also link a Home Assistant action.</p>
+    <label class="source-choice"><input id="sources-enabled" type="checkbox">Set up TV sources</label>
     <div id="source-steps" hidden>
-      <h3>Connect to your TV</h3>
-      <p>Turn on your TV and enable network debugging (ADB) in its developer settings. Then find the installed apps.</p>
-      <details>
-        <summary>Help with network debugging</summary>
-        <ol>
-          <li>Turn on your TV and enable network ADB in its developer settings. The available settings vary by firmware; USB debugging alone may not enable the network connection.</li>
-          <li>Click <strong>Find TV apps</strong>. If your TV asks, allow the debugging connection. Choose to remember it if that option is available.</li>
-          <li>If authorization was needed, click the button again after allowing it.</li>
-        </ol>
-        <p class="muted">This connection requires network ADB on port 5555. It only reads the installed apps.</p>
-      </details>
-      <button id="source-inspect" class="primary" type="button">Find TV apps</button>
+      <div id="source-connect">
+        <h3>Connect to your TV</h3>
+        <p>Turn on your TV and enable network debugging (ADB) in its developer settings.</p>
+        <details><summary>Help with network debugging</summary>
+          <p>Enable network ADB on port 5555. USB debugging alone may not enable it; the available settings vary by firmware. Allow the debugging connection on the TV if asked, then connect again.</p>
+        </details>
+        <button id="source-inspect" class="primary" type="button">Connect to TV</button>
+      </div>
       <p id="source-note" class="muted" role="status"></p>
-      <div id="source-inventory" hidden>
-        <h3>Installed apps</h3>
-        <label class="source-choice"><input id="source-system" type="checkbox">Include system apps</label>
-        <ul id="source-apps"></ul>
-        <p id="source-empty" class="muted" hidden>No added apps found. Include system apps to see the full list.</p>
-        <p class="muted">Apps are listed by their Android package ID.</p>
+      <div id="source-install" hidden>
+        <h3>Install TV Support</h3>
+        <p>A small background app adds your shortcuts to the TV source list. It has no TV screen. Source setup currently supports Beovision Horizon.</p>
+        <div id="source-legacy" hidden>
+          <label class="source-choice"><input id="source-retire" type="checkbox">Replace the previous source helper</label>
+          <p class="muted">Its old shortcuts will be removed. Add the sources you want below.</p>
+        </div>
+        <button id="source-install-button" type="button">Install TV Support</button>
+      </div>
+      <div id="source-editor" hidden>
+        <div class="heading"><h3>Your TV sources</h3><button id="source-add" type="button" class="primary">Add a source</button></div>
+        <p class="muted">Saving adds the shortcut without opening it. Use Test on TV when you are ready to try it.</p>
+        <div id="source-rows"></div>
+        <p id="source-slots" class="muted"></p>
+        <div class="actions"><button id="source-refresh" type="button">Refresh sources</button><button id="source-restore" type="button" hidden>Restore previous setup</button></div>
       </div>
     </div>
   </section>
@@ -152,13 +157,26 @@ dialog::backdrop { background:#0006; } #learn-note { margin-bottom:16px; } #dial
   </form>
   <div class="actions" style="margin-top:16px"><button id="retry" type="button" hidden>Try again</button><button id="cancel" type="button">Cancel</button><button id="learn-help" type="button" hidden>Connection help</button></div>
 </dialog>
+<dialog id="source-panel" aria-labelledby="source-form-title">
+  <h2 id="source-form-title">Add a TV source</h2>
+  <p id="source-form-error" role="alert" hidden></p>
+  <form id="source-form">
+    <label class="field" for="source-name">Source name<input id="source-name" type="text" maxlength="32" required autocomplete="off"></label>
+    <label class="field" for="source-kind">Open<select id="source-kind"><option value="app">A TV app</option><option value="hdmi">An HDMI input or device</option></select></label>
+    <label class="field" for="source-target"><span id="source-target-label">TV app</span><select id="source-target" required></select></label>
+    <label class="field" for="source-action">Home Assistant action<select id="source-action"><option value="none">None</option><option value="scene">Activate a scene</option><option value="light_off">Turn off lights</option><option value="script">Run a script</option><option value="custom">Choose in Home Assistant</option></select></label>
+    <label id="source-ha-field" class="field" for="source-ha-target">Choose action<select id="source-ha-target"></select></label>
+    <p id="source-custom-note" class="muted" hidden>Save this source, then open its automation in Home Assistant to choose any action or condition.</p>
+    <div class="actions"><button id="source-save" class="primary" type="submit">Save source</button><button id="source-cancel" type="button">Cancel</button></div>
+  </form>
+</dialog>
 <script nonce="__NONCE__">
 const base = new URL(__BASE_JSON__, location.origin);
 const token = __TOKEN_JSON__;
 const el = id => document.getElementById(id);
 let status=null, selected='', busy=false, copyValue='', choosing=false, refreshing=false;
 let actionBusy=false, loadedTV='', learningID='', targets={scenes:[],lights:[],scripts:[]}, editing=null, rules=[], known=null;
-let sourceBusy=false, sourceSaving=false, sourceApps=[], sourceTV='';
+let sourceBusy=false, sourceSaving=false, sourceTV='', sourceHelper=null, sourceEditing=null, sourceConnected=false, sourceRendered='', sourceTargets={scenes:[],lights:[],scripts:[]};
 function actionNotice(text) { el('action-note').textContent=text; }
 function dialogError(text='') { el('dialog-error').textContent=text; el('dialog-error').hidden=!text; }
 function actionReady(data) { return data?.runtime?.listener && data.runtime.ha.delivery!=='disabled'; }
@@ -297,53 +315,99 @@ function show(data) {
   showSources(data);
   if(data.error)notice(data.error);else if(previousError)notice();
 }
-function renderSourceApps() {
-  const visible=sourceApps.filter(app=>el('source-system').checked || !app.system);
-  el('source-apps').replaceChildren();el('source-empty').hidden=!!visible.length;
-  for(const app of visible) {
-    const item=document.createElement('li'),name=document.createElement('strong');
-    name.textContent=app.name;item.append(name);
-    if(app.name!==app.package){const identifier=document.createElement('small');identifier.textContent=app.package;item.append(identifier);}
-    el('source-apps').append(item);
+function showSourceEditor() {
+  const renderKey=JSON.stringify([sourceHelper,sourceBusy,sourceSaving]);
+  if(renderKey===sourceRendered)return;sourceRendered=renderKey;
+  const ready=!!sourceHelper && ['ready','attention'].includes(sourceHelper.state);
+  el('source-editor').hidden=!ready;
+  el('source-install').hidden=!!sourceHelper && !(sourceHelper.legacy_sources>0);
+  el('source-legacy').hidden=!el('source-retire').dataset.present;
+  el('source-rows').replaceChildren();
+  if(!sourceHelper)return;
+  const free=(sourceHelper.slots || []).filter(slot=>slot.free).length;
+  el('source-slots').textContent=free+' source '+(free===1?'slot':'slots')+' available.';
+  el('source-add').disabled=sourceBusy || sourceHelper.state!=='ready' || free===0;
+  el('source-restore').hidden=!sourceHelper.can_restore;
+  for(const row of sourceHelper.entries || []) {
+    const card=document.createElement('div');card.className='rule';
+    const name=document.createElement('strong');name.textContent=row.name;
+    const detail=document.createElement('p');detail.className='muted';
+    const target=(sourceHelper.apps || []).find(app=>app.package===row.target) || (sourceHelper.inputs || []).find(input=>input.id===row.target);
+    detail.textContent=(row.kind==='app'?'TV app: ':'Input: ')+(target?.name || row.target)+(row.action_kind!=='none'?' · Home Assistant action':'');
+    const buttons=document.createElement('div');buttons.className='actions';
+    for(const [label,handler] of [['Change',()=>openSource(row)],['Test on TV',()=>sourceTask('test',{id:row.id})],['Remove',()=>{if(confirm('Remove “'+row.name+'” from the TV source list?'))sourceTask('remove',{revision:sourceHelper.revision || '',id:row.id});}]]){
+      const button=document.createElement('button');button.type='button';button.textContent=label;button.setAttribute('aria-label',label+' '+row.name);button.disabled=sourceBusy;button.addEventListener('click',handler);buttons.append(button);
+    }
+    if(row.edit_path){const link=document.createElement('a');link.textContent='Open in Home Assistant';link.href=row.edit_path;link.target='_top';link.setAttribute('aria-label','Open in Home Assistant for '+row.name);buttons.append(link);}
+    card.append(name,detail,buttons);el('source-rows').append(card);
   }
 }
 function showSources(data) {
-  const enabled=!!data.sources?.enabled;
+  const enabled=!!data.sources?.enabled, pending=sourceBusy || sourceSaving;
   el('sources-section').hidden=!data.tv_jid;
-  const pending=sourceBusy || sourceSaving;
   if(!sourceSaving)el('sources-enabled').checked=enabled;
-  el('sources-enabled').disabled=pending;
-  el('source-steps').hidden=!enabled;el('source-inspect').disabled=sourceBusy || !enabled;
-  el('source-inspect').textContent=sourceBusy?'Finding apps…':'Find TV apps';
-  el('source-inspect').disabled=pending || !enabled;
+  el('sources-enabled').disabled=pending;el('source-steps').hidden=!enabled;
+  el('source-connect').hidden=!!sourceHelper && sourceConnected;
+  for(const id of ['source-inspect','source-install-button','source-refresh','source-restore','source-save','source-cancel'])el(id).disabled=pending;
+  el('source-inspect').textContent=sourceBusy?'Working…':'Connect to TV';
   for(const id of ['change-tv','select','pause','resume'])el(id).disabled=pending || (id==='select' && !selected);
-  if(sourceTV!==data.tv_jid || !enabled){sourceTV=data.tv_jid;sourceApps=[];el('source-inventory').hidden=true;el('source-note').textContent=data.sources?.error || '';}
+  if(sourceTV!==data.tv_jid || !enabled){if(el('source-panel').open)el('source-panel').close();sourceTV=data.tv_jid;sourceHelper=null;sourceConnected=false;sourceRendered='';el('source-install').hidden=true;el('source-editor').hidden=true;el('source-note').textContent=data.sources?.error || '';}
+  else if(sourceHelper)showSourceEditor();
   actionControls();
+}
+async function sourceTask(operation,body) {
+  if(sourceBusy || busy)return;sourceBusy=true;busy=true;showSources(status);notice();
+  el('source-note').textContent=operation==='install'?'Installing TV Support…':operation==='test'?'Selecting the source on your TV…':'Updating TV sources…';
+  try {
+    const result=await api('api/sources/'+operation,{tv_jid:status.tv_jid,...body});sourceConnected=true;
+    if(operation==='test')el('source-note').textContent='Test sent. Check the picture and controls on your TV.';
+    else {sourceHelper=result;el('source-note').textContent=result.error || (operation==='save'?'Source saved.':operation==='remove'?'Source removed.':operation==='restore'?'Previous setup restored.':'TV Support is ready.');}
+    if(operation==='save')el('source-panel').close();
+  } catch(error){sourceConnected=false;el('source-note').textContent=error.message;if(el('source-panel').open){el('source-form-error').textContent=error.message;el('source-form-error').hidden=false;}}
+  finally{sourceBusy=false;busy=false;showSources(status);}
+}
+function sourceOptions(id,items,value) {
+  const select=el(id);select.replaceChildren();const first=document.createElement('option');first.value='';first.textContent='Choose…';select.append(first);
+  for(const item of items){const option=document.createElement('option');option.value=item.id || item.package;option.textContent=item.name;select.append(option);}if(value)select.value=value;
+}
+function sourceRoute(value) {
+  const app=el('source-kind').value==='app';el('source-target-label').textContent=app?'TV app':'HDMI input';
+  sourceOptions('source-target',app?(sourceHelper.apps || []):(sourceHelper.inputs || []),value);
+}
+function sourceAction(value) {
+  const kind=el('source-action').value, group={scene:'scenes',light_off:'lights',script:'scripts'}[kind];
+  el('source-ha-field').hidden=!group;el('source-ha-target').required=!!group;el('source-custom-note').hidden=kind!=='custom';
+  sourceOptions('source-ha-target',sourceTargets[group] || [],value);
+}
+async function openSource(row=null) {
+  if(sourceBusy || busy)return;
+  try {sourceTargets=await api('api/sources/targets',{tv_jid:status.tv_jid});sourceEditing=row;
+    el('source-form-title').textContent=row?'Change TV source':'Add a TV source';el('source-form-error').hidden=true;
+    el('source-name').value=row?.name || '';el('source-kind').value=row?.kind || 'app';sourceRoute(row?.target);
+    el('source-action').value=row?.action_kind || 'none';sourceAction(row?.action_target);el('source-panel').showModal();el('source-name').focus();
+  }catch(error){el('source-note').textContent=error.message;}
 }
 el('sources-enabled').addEventListener('change',async()=>{
   if(sourceBusy || sourceSaving || busy){showSources(status);return;}const enabled=el('sources-enabled').checked;sourceSaving=true;busy=true;showSources(status);
-  try{status.sources=await api('api/sources/options',{enabled});}
-  catch(error){notice(error.message);}
-  finally{sourceSaving=false;busy=false;showSources(status);}
+  try{status.sources=await api('api/sources/options',{enabled});}catch(error){notice(error.message);}finally{sourceSaving=false;busy=false;showSources(status);}
 });
-el('source-system').addEventListener('change',renderSourceApps);
 el('source-inspect').addEventListener('click',async()=>{
-  if(sourceBusy || busy)return;sourceBusy=true;busy=true;notice();showSources(status);
-  el('source-inventory').hidden=true;sourceApps=[];
-  el('source-note').textContent='Checking the TV connection. Look for an authorization prompt on the TV.';
-  try {
-    const result=await api('api/sources/inventory',{});
-    show(await api('api/status'));
-    if(result.tv_jid!==status.tv_jid)throw new Error('The selected TV changed. Check the new TV again.');
-    if(result.state==='authorization_required')el('source-note').textContent='Allow the debugging connection on your TV, then click Find TV apps again.';
-    else if(result.state!=='connected')el('source-note').textContent='Could not connect to network debugging. Check that your TV is on and network ADB is enabled on port 5555, then try again.';
-    else {
-      sourceApps=result.apps;renderSourceApps();el('source-inventory').hidden=false;
-      el('source-note').textContent='Connected · '+(result.model || 'TV')+' · Android '+(result.android || 'unknown')+' · '+sourceApps.length+' packages';
-    }
-  }catch(error){el('source-note').textContent=error.message;}
-  finally{sourceBusy=false;busy=false;showSources(status);}
+  if(sourceBusy || busy)return;sourceBusy=true;busy=true;showSources(status);el('source-note').textContent='Checking your TV. Allow the debugging connection on the TV if asked.';
+  try{const result=await api('api/sources/inventory',{});if(result.tv_jid!==status.tv_jid)throw new Error('The TV selection changed. Connect again.');
+    if(result.state==='authorization_required')el('source-note').textContent='Allow debugging on the TV, then click Connect to TV again.';
+    else if(result.state!=='connected')el('source-note').textContent='Could not connect. Check network debugging on the TV, then try again.';
+    else{sourceConnected=true;sourceHelper=result.helper || null;el('source-install').hidden=false;el('source-retire').dataset.present=result.legacy_installed?'yes':'';el('source-legacy').hidden=!result.legacy_installed;el('source-note').textContent=sourceHelper?.error || (sourceHelper?'TV Support is connected.':'Connected. Install TV Support to add sources.');}
+  }catch(error){el('source-note').textContent=error.message;}finally{sourceBusy=false;busy=false;showSources(status);}
 });
+el('source-install-button').addEventListener('click',()=>sourceTask('install',{retire_old:el('source-retire').checked}));
+el('source-refresh').addEventListener('click',()=>sourceTask('refresh',{}));
+el('source-restore').addEventListener('click',()=>{if(confirm('Restore the source setup from before the last change?'))sourceTask('restore',{revision:sourceHelper.revision || ''});});
+el('source-add').addEventListener('click',()=>openSource());
+el('source-kind').addEventListener('change',()=>sourceRoute());
+el('source-action').addEventListener('change',()=>sourceAction());
+el('source-cancel').addEventListener('click',()=>{if(!sourceBusy)el('source-panel').close();});
+el('source-panel').addEventListener('cancel',event=>{if(sourceBusy)event.preventDefault();});
+el('source-form').addEventListener('submit',event=>{event.preventDefault();sourceTask('save',{revision:sourceHelper.revision || '',entry:{id:sourceEditing?.id || '',name:el('source-name').value,kind:el('source-kind').value,target:el('source-target').value,action_kind:el('source-action').value,action_target:el('source-ha-field').hidden?'':el('source-ha-target').value}});});
 async function refresh() {
   if(refreshing)return;refreshing=true;
   const initial=status===null;

@@ -1,5 +1,7 @@
 """Optional source setup: explicit, read-only ADB inventory for the selected TV."""
 import asyncio
+import base64
+import hashlib
 import json
 import logging
 import os
@@ -205,7 +207,69 @@ class AdbInventory:
         installed = await self._command(*target, "pm", "list", "packages")
         system = await self._command(*target, "pm", "list", "packages", "-s")
         return {"state": "connected", "model": model, "android": android,
-                "apps": packages(installed, system)}
+                "apps": packages(installed, system),
+                "helper_installed": "package:nl.beoremote.tvhelper" in installed.splitlines(),
+                "legacy_installed": "package:nl.johan.horizonappletv" in installed.splitlines()}
+
+    async def helper_call(self, address, method, data=None):
+        if method not in {"status", "backup", "apply", "test", "refresh"}:
+            raise ValueError("Unknown TV operation.")
+        validate_ipv4(address)
+        await self._start()
+        args = ["-P", str(self.port), "-s", f"{address}:5555", "shell", "content", "call",
+                "--uri", "content://nl.beoremote.tvhelper.control", "--method", method]
+        if data is not None:
+            raw = json.dumps(data, separators=(",", ":")).encode()
+            if len(raw) > 32000:
+                raise ValueError("The TV setup is too large.")
+            args += ["--arg", base64.b64encode(raw).decode()]
+        output = await self._command(*args)
+        match = re.search(r"\bresult=([A-Za-z0-9+/=]+)", output)
+        if not match:
+            raise ValueError("TV Support did not answer. Reinstall TV Support and try again.")
+        try:
+            result = json.loads(base64.b64decode(match[1], validate=True))
+        except (ValueError, UnicodeError):
+            raise ValueError("TV Support returned an invalid response.") from None
+        if not isinstance(result, dict) or result.get("error") and "state" not in result:
+            raise ValueError("TV Support rejected the request. Refresh its status before trying again.")
+        return result
+
+    async def install_helper(self, address):
+        validate_ipv4(address)
+        await self._start()
+        assets = Path(__file__).parent
+        metadata = json.loads((assets / "helper_apk.json").read_text())
+        raw = base64.b64decode((assets / "helper_apk.b64").read_text(), validate=False)
+        if hashlib.sha256(raw).hexdigest() != metadata["sha256"]:
+            raise ValueError("TV Support failed its integrity check. Update this gateway first.")
+        with tempfile.TemporaryDirectory() as directory:
+            apk = Path(directory) / "support.apk"
+            apk.write_bytes(raw)
+            output = await self._command("-P", str(self.port), "-s", f"{address}:5555",
+                                         "install", "-f", "-r", str(apk), timeout=90)
+        if "Success" not in output.splitlines():
+            raise ValueError("TV Support was not installed. Existing apps have been kept.")
+
+    async def stop_helper(self, address):
+        validate_ipv4(address)
+        await self._command("-P", str(self.port), "-s", f"{address}:5555", "shell", "am", "force-stop", "nl.beoremote.tvhelper")
+
+    async def start_helper(self, address):
+        validate_ipv4(address)
+        await self._command("-P", str(self.port), "-s", f"{address}:5555", "shell", "am", "broadcast",
+                            "--include-stopped-packages", "-n", "nl.beoremote.tvhelper/.StartReceiver",
+                            "-a", "nl.beoremote.tvhelper.START")
+
+    async def retire_legacy(self, address):
+        validate_ipv4(address)
+        await self._command("-P", str(self.port), "-s", f"{address}:5555", "shell", "am", "broadcast",
+                            "--include-stopped-packages", "-n", "nl.johan.horizonappletv/.ManagementReceiver",
+                            "-a", "nl.johan.horizonappletv.REMOVE_SOURCES")
+
+    async def stop_legacy(self, address):
+        validate_ipv4(address)
+        await self._command("-P", str(self.port), "-s", f"{address}:5555", "shell", "am", "force-stop", "nl.johan.horizonappletv")
 
     async def close(self):
         if self.port is not None:

@@ -19,6 +19,11 @@ dependencies of the gateway container.
 The optional source-management extension uses Debian's ADB client. Debian keeps
 the Android and supporting library license notices under `/usr/share/doc`.
 
+TV Support is compiled from the project-owned Java source in `tv_helper/` using
+the Android SDK and its build tools. Its route lifecycle builds on the author's
+earlier TV shortcut helper. The APK bundles no B&O framework or vendor library;
+it calls interfaces already present on the TV through reflection.
+
 Bang & Olufsen, Beoremote and Beovision are names of their respective owners.
 This is an independent community project. No B&O firmware, proprietary libraries,
 brand fonts, logos, private device captures or account credentials are distributed.

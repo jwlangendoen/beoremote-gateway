@@ -14,6 +14,7 @@ from .config import Options
 from .learning import ButtonLearning
 from .runtime import GatewayRuntime
 from .sources import SourceSettings
+from .tv_sources import TVSources
 
 LOG = logging.getLogger(__name__)
 SETUP_PATH = Path("/data/selected-tv.json")
@@ -219,41 +220,104 @@ class SetupController:
             await self.sources.set_enabled(enabled)
         return self.sources.status()
 
+    def source_editor(self):
+        if not hasattr(self, "_source_editor"):
+            self._source_editor = TVSources(self.path.parent, self.actions)
+        return self._source_editor
+
+    async def _source_target(self):
+        if not self.sources.enabled:
+            raise ValueError("Enable source management before connecting with ADB.")
+        if self.options.mode == "auto":
+            if self.selection is None:
+                raise ValueError("Choose your TV first.")
+            jid = self.selection["jid"]
+            # A TV may answer its native API while missing from a fresh mDNS
+            # browse. Reuse the receiver's address only after checking its
+            # product identity; never contact ADB on an unverified old IP.
+            address = None
+            if self.runtime is not None and self.runtime.options.horizon_jid == jid:
+                candidate = self.runtime.options.horizon_address
+                if await self.sources.verify(candidate, jid):
+                    address = candidate
+            if address is None:
+                devices = await self.scan()
+                record = next((item for item in devices if item["jid"] == jid), None)
+                if record is None:
+                    raise ValueError("Wake your selected TV and search again. No other device will be used.")
+                candidate, _local = self.route(record["addresses"])
+                if not await self.sources.verify(candidate, jid):
+                    raise ValueError("The TV identity could not be confirmed. Wake your TV and try again.")
+                address = candidate
+        elif self.options.mode in ("listen", "advertise"):
+            address = self.options.horizon_address
+            jid = self.options.horizon_jid
+            if not await self.sources.verify(address, jid):
+                raise ValueError("The TV identity could not be confirmed. Wake your TV and try again.")
+        else:
+            raise ValueError("Choose your TV in automatic mode first.")
+        local = self.runtime.options.advertise_address if self.runtime is not None else ""
+        if not local:
+            _remote, local = self.route([address])
+        return address, jid, local
+
     async def inspect_sources(self):
         if self.sources.lock.locked():
-            raise ValueError("A TV inventory is already running. Wait for it to finish.")
+            raise ValueError("A TV operation is already running. Wait for it to finish.")
         async with self.sources.lock, self.lock:
-            if not self.sources.enabled:
-                raise ValueError("Enable source management before connecting with ADB.")
-            if self.options.mode == "auto":
-                if self.selection is None:
-                    raise ValueError("Choose your TV first.")
-                jid = self.selection["jid"]
-                # A TV may answer its native API while missing from a fresh mDNS
-                # browse. Reuse the receiver's address only after checking its
-                # product identity; never contact ADB on an unverified old IP.
-                address = None
-                if self.runtime is not None and self.runtime.options.horizon_jid == jid:
-                    candidate = self.runtime.options.horizon_address
-                    if await self.sources.verify(candidate, jid):
-                        address = candidate
-                if address is None:
-                    devices = await self.scan()
-                    record = next((item for item in devices if item["jid"] == jid), None)
-                    if record is None:
-                        raise ValueError("Wake your selected TV and search again. No other device will be used.")
-                    candidate, _local = self.route(record["addresses"])
-                    if not await self.sources.verify(candidate, jid):
-                        raise ValueError("The TV identity could not be confirmed. Wake your TV and try again.")
-                    address = candidate
-            elif self.options.mode in ("listen", "advertise"):
-                address = self.options.horizon_address
-                jid = self.options.horizon_jid
-                if not await self.sources.verify(address, jid):
-                    raise ValueError("The TV identity could not be confirmed. Wake your TV and try again.")
-            else:
-                raise ValueError("Choose your TV in automatic mode first.")
-            return {**await self.sources.adb.inspect(address), "tv_jid": jid}
+            address, jid, _local = await self._source_target()
+            result = await self.sources.adb.inspect(address)
+            if result.get("state") == "connected" and result.get("helper_installed"):
+                result["helper"] = await self.source_editor().status(self.sources.adb, address, jid)
+            return {**result, "tv_jid": jid}
+
+    async def source_operation(self, operation, data):
+        if self.sources.lock.locked():
+            raise ValueError("A TV operation is already running. Wait for it to finish.")
+        async with self.sources.lock, self.lock:
+            address, jid, local = await self._source_target()
+            if data.get("tv_jid") != jid:
+                raise ValueError("The selected TV changed. Refresh the page before changing sources.")
+            editor, adb = self.source_editor(), self.sources.adb
+            if operation == "install":
+                if not jid.startswith("7980."):
+                    raise ValueError("TV source setup currently supports Beovision Horizon only.")
+                inventory = await adb.inspect(address)
+                if inventory.get("state") != "connected":
+                    raise ValueError("Allow network debugging on the TV, then connect again.")
+                if not str(inventory.get("android", "")).startswith("5.1"):
+                    raise ValueError("This TV firmware has not been validated for source setup.")
+                if inventory.get("helper_installed"):
+                    await adb.stop_helper(address)
+                await adb.install_helper(address)
+                await adb.start_helper(address)
+                status = await editor.wait_ready(adb, address, jid)
+                if data["retire_old"]:
+                    if not status.get("legacy_trusted"):
+                        raise ValueError("The old helper could not be verified. It has been kept.")
+                    await adb.retire_legacy(address)
+                    for _ in range(15):
+                        status = await editor.status(adb, address, jid)
+                        if status.get("legacy_sources") == 0:
+                            await adb.stop_legacy(address)
+                            break
+                        await asyncio.sleep(.5)
+                    else:
+                        raise ValueError("Choose a normal TV input before replacing the old shortcuts, then try again.")
+                return await editor.status(adb, address, jid)
+            if operation == "targets":
+                return await self.actions.targets()
+            if operation == "refresh":
+                return await editor.refresh(adb, address, jid)
+            if operation == "save":
+                return await editor.save(adb, address, local, jid, data["revision"], data["entry"])
+            if operation == "remove":
+                return await editor.remove(adb, address, jid, data["revision"], data["id"])
+            if operation == "restore":
+                return await editor.restore(adb, address, jid, data["revision"])
+            if operation == "test":
+                return await editor.test(adb, address, jid, data["id"])
+            raise ValueError("Unknown TV source operation.")
 
     async def start_learning(self):
         async with self.lock:

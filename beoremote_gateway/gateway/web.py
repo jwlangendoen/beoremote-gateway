@@ -3,6 +3,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 from pathlib import Path
 import secrets
 
@@ -163,13 +164,31 @@ def make_app(controller, allowed_peers=frozenset({INGRESS_PEER}), admin_check=No
         await fields(request, ())
         return web.json_response(await controller.inspect_sources())
 
+    async def source_operation(request):
+        operation = request.match_info["operation"]
+        keys = {"install": ("retire_old",), "refresh": (), "targets": (), "save": ("revision", "entry"),
+                "remove": ("revision", "id"), "restore": ("revision",), "test": ("id",)}
+        if operation not in keys:
+            raise ValueError("Unknown TV source operation.")
+        data = await fields(request, ("tv_jid", *keys[operation]))
+        if operation == "install" and type(data["retire_old"]) is not bool:
+            raise ValueError("Choose whether to replace the old helper.")
+        if "revision" in data and (not isinstance(data["revision"], str) or len(data["revision"]) > 32):
+            raise ValueError("Refresh the TV source setup first.")
+        if "id" in data and (not isinstance(data["id"], str) or not re.fullmatch(r"BGW_[a-f0-9]{12}", data["id"])):
+            raise ValueError("Choose a saved source.")
+        if "entry" in data and not isinstance(data["entry"], dict):
+            raise ValueError("Choose a valid source.")
+        return web.json_response(await controller.source_operation(operation, data))
+
     app.add_routes([web.get("/", index), web.get("/api/status", status),
                     web.get("/api/devices", devices), web.post("/api/select", select),
                     web.post("/api/pause", pause), web.post("/api/resume", resume), web.get("/api/targets", targets),
                     web.get("/api/actions", actions), web.post("/api/learning/start", learn),
                     web.post("/api/learning/cancel", cancel), web.post("/api/actions/save", save),
                     web.post("/api/actions/update", update), web.post("/api/actions/toggle", toggle), web.post("/api/actions/remove", remove),
-                    web.post("/api/sources/options", source_options), web.post("/api/sources/inventory", source_inventory)])
+                    web.post("/api/sources/options", source_options), web.post("/api/sources/inventory", source_inventory),
+                    web.post("/api/sources/{operation}", source_operation)])
     return app
 
 
