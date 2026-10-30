@@ -20,8 +20,8 @@ from the Home Assistant menu.
 
 **[Follow the setup guide →](beoremote_gateway/DOCS.md)**
 
-It covers choosing the TV, selecting the gateway in the Horizon's service menu
-and adding your first LIGHT button.
+It covers choosing the TV and adding your first LIGHT button. If button presses
+already arrive, you can skip the service-menu steps.
 
 ## Compatibility
 

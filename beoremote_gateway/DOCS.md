@@ -14,9 +14,12 @@ same local network. Only Horizon has been tested.
 Enable **Show in sidebar** on the app's Info tab to open Beoremote Gateway
 directly from the Home Assistant menu next time.
 
-## 2. Connect the Horizon
+## 2. Check the connection
 
-Keep the app running. On the TV, use your Beoremote:
+Your Horizon may reconnect by itself if it used this gateway before. Try adding
+a LIGHT button in step 3. If the app receives the press, skip the TV menu below.
+
+If no LIGHT press arrives, keep the app running and use your Beoremote on the TV:
 
 1. Open **MENU → Settings**.
 2. Highlight **Service Menu** and press the **red button before the centre button**.

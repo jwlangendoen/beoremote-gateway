@@ -34,6 +34,17 @@ Auto setup saves the selected TV identity in the app's data folder and follows
 its IP address changes. It never selects a different product on its own. Stop
 gateway pauses the receiver and remembers the choice, including after a restart.
 
+## Reconnecting an existing TV
+
+After **Use this TV**, the app advertises its gateway on the LAN. It does not
+write the TV's gateway selection. The advertised gateway identity has stayed
+the same across releases, including the change to the English display name.
+A TV that previously used it may reconnect without visiting the service menu.
+Automatic gateway selection on a fresh TV has not been verified.
+
+A connection alone does not prove LIGHT forwarding. Use **Add a button** and
+press a LIGHT function: if it is received, no service-menu change is needed.
+
 ## Saved button actions
 
 The app creates ordinary Home Assistant automations. They survive an app restart
