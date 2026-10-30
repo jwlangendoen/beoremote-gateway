@@ -203,6 +203,10 @@ class SetupController:
         async with self.lock:
             await self.actions.toggle(key, self.action_tv(), enabled)
 
+    async def update_action(self, key, name, kind, target):
+        async with self.lock:
+            return await self.actions.update(key, self.action_tv(), name, kind, target)
+
     async def remove_action(self, key):
         async with self.lock:
             await self.actions.remove(key, self.action_tv())

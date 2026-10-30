@@ -22,9 +22,10 @@ class GatewayRuntime:
 
     def telegram(self, event):
         LOG.debug("telegram %s", json.dumps(event, separators=(",", ":")))
+        accepted = self.buttons.accept(event)
         if self.observer is not None and self.observer(event) is False:
             return
-        if self.publisher is not None and self.buttons.accept(event):
+        if self.publisher is not None and accepted:
             self.publisher.submit(event)
 
     async def start(self):

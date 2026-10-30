@@ -1,4 +1,4 @@
-# Beoremote Gateway 0.3.0
+# Beoremote Gateway 0.4.0
 
 Receive Beoremote One LIGHT commands through a Beovision Horizon and use them in
 Home Assistant. Experimental: only Horizon has been tested. This is a network
@@ -56,51 +56,46 @@ The setup page shows **TV connected** when the Horizon opens its connection.
 Discovery finds the device; selecting the gateway on the TV routes the button
 presses. Enable **Start on boot** and **Watchdog** once your setup is working.
 
-## 3. Confirm reception
+## 3. Give a button an action
 
-1. In **Developer tools → Events**, listen for `beoremote_telegram`.
-2. On the remote, open **LIST → LIGHT**, navigate to a function and select it.
-   Selecting LIGHT alone may just enter light-control mode without a telegram.
-3. Check that an event arrives from your TV with the expected `data_hex`.
+In the setup page, click **Add a button**. Open **LIST → LIGHT** on your Beoremote,
+choose a function and press it. Selecting LIGHT alone may only enter the menu;
+select the actual function you want to use.
 
-Events contain `peer_jid`, `originator`, `data_hex`, `data_base64`, `timestamp`
-and `received_at`. The TV's `timestamp` is not a Unix receipt time. Use
-`received_at` to check freshness.
+Once the app receives the button:
 
-| Observed choice | Command byte | `data_hex` |
-| --- | --- | --- |
-| LIGHT 0 | 0 | `001b0000000000000000000000` |
-| LIGHT 1 digit key | 1 | `001b0000010000000000000000` |
-| LIGHT function 1 (initially Ochtend) | 15 | `001b00000f0000000000000000` |
-| LIGHT function 11 (initially Home) | 37 | `001b0000250000000000000000` |
-| Release | 126 | `001b00007e0000000000000000` |
+1. Give it a name, such as **Movie**. The app cannot read the display label from
+   the remote, so this name is just for your action list.
+2. Choose **Activate a scene** and pick one of your existing Home Assistant scenes,
+   or **Turn off lights** and choose a light or light group by name.
+3. Click **Save action**. Release the remote button, then press it again to try it.
 
-Function numbers are not command bytes. Names can be renamed on the remote;
-confirm the event rather than guessing. Command bytes 38, 39 and 57 were tested
-with simulated events; their physical remote presses remain unverified.
-Repeat suppression covers LIGHT bytes 0, 15, 37, 38, 39 and 57. Other commands,
-including digit 1, remain raw and may repeat.
+You do not need a blueprint, button code, TV identity or personal access token.
+Scenes and light groups need to exist in Home Assistant first. Use **Refresh
+actions** after adding them. For a different kind of action, open **More options**
+on the saved action to edit it in Home Assistant.
 
-## 4. Create an automation
+**Change** lets you pick a new scene or lights without learning the button again.
+**Pause/Enable** switches the automation off or on; **Remove** deletes it. Saving
+an already learned button updates that button instead of creating a duplicate.
+Each TV/button has one action in this simple form.
 
-Under **Settings → Automations & scenes → Blueprints → Import**, import:
+These are ordinary Home Assistant automations, saved in its normal automation
+configuration. They survive an app restart or reinstall and appear under
+**Settings → Automations & scenes**. If you customize one in Home Assistant, the
+app shows it as edited and leaves further changes to Home Assistant. Unrelated
+automations are left alone.
 
-```text
-https://github.com/jwlangendoen/beoremote-gateway/blob/main/blueprints/automation/beoremote_light_action.yaml
-```
+If you previously used a blueprint or another automation for the same button,
+turn that older automation off before adding the button here. Otherwise both can
+run. The app cannot identify arbitrary older automations reliably.
 
-Create one automation per button. Use **Import blueprint** and **Copy TV identity** on
-the setup page. Paste the identity into the blueprint, select the LIGHT button
-whose payload you observed, and choose your action, such as activating a scene.
-Leave **Dry run** enabled initially. Press the real button and inspect the trace:
-a fresh matching event stops at the dry-run step before executing your action.
-Turn Dry run off once the mapping is correct.
-
-The blueprint matches the TV identity, originator and full payload, rejects old,
-future or missing receipt times and checks freshness when a queued run starts.
-Manual **Run actions** does not impersonate a remote press. Each automation queues
-up to five runs; ordering between separate automations is not guaranteed. Avoid
-long delays in scene actions.
+While listening for a button, the app does not publish that TV's remote events.
+The captured press and its held repeats are also withheld while you choose the
+action. Saving only stores and enables the automation; it does not run the scene.
+Only a fresh matching button event runs it afterwards. Listening expires after
+30 seconds; a captured button expires after five minutes. Release the button
+before trying the saved action.
 
 ## Give the LIGHT functions your own names
 
@@ -119,7 +114,7 @@ separate **Beovision infrared (IR) product profile**, which can be a bit hidden.
    such as Movie or All off, and **Move** to choose their order.
 5. Switch back to your usual Bluetooth-paired Horizon product through LIST.
    The renamed LIGHT functions are also available when controlling the Horizon.
-6. Match each button to the action or scene you want in the HA blueprint.
+6. Match each button to the action or scene you want in the app.
    Renaming a function does not create a scene or change its command byte.
 
 The product **Rename** setting under Products changes the product's name, not the
@@ -149,8 +144,9 @@ needed when that profile is not already in the remote's product list.
 
 Save and restart after changes. The app uses host networking for discovery and TV
 connections. It requests `homeassistant_api` to post events using the built-in
-Supervisor token: no personal access token is needed. That permission allows
-broader Core API access, although this code only posts events. Protection mode
+Supervisor token: no personal access token is needed. The setup page also uses
+that access to read scenes/lights, save its own automations and enable or disable
+them through the same Core API used by the HA automation editor. Protection mode
 can stay enabled. No host files or Docker socket are mounted. The setup page is
 served through HA ingress; direct LAN requests are rejected. It only accepts the
 Supervisor proxy as its TCP peer, and changes require the setup page token. HA
@@ -169,7 +165,15 @@ endpoint without requesting additional Supervisor privileges.
 - **Stream, no events:** select an actual LIGHT function (and check
   `publish_ha_events` if using a manual mode),
   and inspect the `received`/`suppressed` counters in `gateway_status`.
-- **Events, no action:** inspect the automation trace, Dry run, payload and identity.
+- **No button received:** make sure the TV shows connected and has this gateway
+  selected, then retry and press an actual LIGHT function.
+- **No scenes/lights:** add them in Home Assistant, then click Refresh actions.
+- **Saved but no action:** enable the action, release the button and press it
+  again. Check its trace under More options if needed.
+- **Runs twice:** turn off the older blueprint/manual automation for that button.
+- **Cannot save:** check that HA Core is available and its automation editor works.
+  A write may have succeeded before a connection was lost; refresh the list or
+  retry the same button. It uses the same automation ID, so retries do not duplicate it.
 - **HA unavailable:** old commands expire and uncertain HTTP requests are not
   retried. Try a new press after recovery.
 
@@ -181,9 +185,60 @@ CONTROL, dimming and standby are not verified.
 ## Updates and removal
 
 Back up the app and automations before updating. Updates appear in the app store;
-review the changelog and test a real button afterwards. Version 0.3.0 adds the
-setup page; historical receiver hardware checks and new setup tests are recorded separately in the project testing notes.
+review the changelog and test a real button afterwards. Version 0.4.0 adds the
+guided action setup; historical receiver hardware checks and new setup tests are recorded separately in the project testing notes.
 
 To remove: disable its automations, restore the previous TV gateway destination,
 then stop and uninstall the app. Importing a blueprint alone changes no TV settings,
 remote labels, lighting or existing automations.
+
+## Advanced: events and the optional blueprint
+
+The guided action setup above is enough for scenes and lights-off. The details
+below are for other actions and troubleshooting.
+
+### Inspect raw events
+
+1. In **Developer tools → Events**, listen for `beoremote_telegram`.
+2. On the remote, open **LIST → LIGHT**, navigate to a function and select it.
+   Selecting LIGHT alone may just enter light-control mode without a telegram.
+3. Check that an event arrives from your TV with the expected `data_hex`.
+
+Events contain `peer_jid`, `originator`, `data_hex`, `data_base64`, `timestamp`
+and `received_at`. The TV's `timestamp` is not a Unix receipt time. Use
+`received_at` to check freshness.
+
+| Observed choice | Command byte | `data_hex` |
+| --- | --- | --- |
+| LIGHT 0 | 0 | `001b0000000000000000000000` |
+| LIGHT 1 digit key | 1 | `001b0000010000000000000000` |
+| LIGHT function 1 (initially Ochtend) | 15 | `001b00000f0000000000000000` |
+| LIGHT function 11 (initially Home) | 37 | `001b0000250000000000000000` |
+| Release | 126 | `001b00007e0000000000000000` |
+
+Function numbers are not command bytes. Names can be renamed on the remote;
+confirm the event rather than guessing. Command bytes 38, 39 and 57 were tested
+with simulated events; their physical remote presses remain unverified.
+Repeat suppression covers simple 13-byte LIGHT press frames, including digit
+keys and learned functions. CONTROL and other frame formats remain raw.
+
+### Optional blueprint
+
+Under **Settings → Automations & scenes → Blueprints → Import**, import:
+
+```text
+https://github.com/jwlangendoen/beoremote-gateway/blob/main/blueprints/automation/beoremote_light_action.yaml
+```
+
+Create one automation per button. Under **Existing automations and more options**
+on the setup page, use **Import blueprint** and **Copy TV identity**. Paste the identity into the blueprint, select the LIGHT button
+whose payload you observed, and choose your action, such as activating a scene.
+Leave **Dry run** enabled initially. Press the real button and inspect the trace:
+a fresh matching event stops at the dry-run step before executing your action.
+Turn Dry run off once the mapping is correct.
+
+The blueprint matches the TV identity, originator and full payload, rejects old,
+future or missing receipt times and checks freshness when a queued run starts.
+Manual **Run actions** does not impersonate a remote press. Each automation queues
+up to five runs; ordering between separate automations is not guaranteed. Avoid
+long delays in scene actions.

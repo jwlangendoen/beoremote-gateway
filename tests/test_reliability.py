@@ -49,9 +49,9 @@ class ButtonTests(unittest.TestCase):
         clock[0] = 0.03
         self.assertFalse(buttons.accept(event()))
 
-    def test_other_buttons_and_control_remain_raw(self):
+    def test_control_and_non_light_frames_remain_raw(self):
         buttons = ButtonFilter()
-        for sample in (event(205), event(15, address=28), event(1)):
+        for sample in (event(15, address=28), {**event(), "data_hex": "001b01000f0000000000000000"}):
             self.assertTrue(buttons.accept(sample))
             self.assertTrue(buttons.accept(sample))
 

@@ -1,3 +1,13 @@
+# 0.4.0
+
+- Add LIGHT buttons directly in the app: press a button, name it and choose a
+  Home Assistant scene or lights to turn off. No blueprint or device codes needed.
+- Change, pause, enable and remove these ordinary HA automations from the app.
+- Withhold the learning press and held repeats; saving does not run the action.
+- Preserve automations customized in HA and leave unrelated automations alone.
+- Suppress held repeats for all simple LIGHT press frames, including digit keys.
+- Keep the blueprint as an optional advanced route and simplify the main guide.
+
 # 0.3.0
 
 - Set up the gateway inside Home Assistant with **Open Web UI**: find B&O products

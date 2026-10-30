@@ -5,8 +5,7 @@ The LIGHT menu was there, so it seemed like a nice thing to make work with Home
 Assistant.
 
 This little gateway connects my Beovision Horizon to Home Assistant. At home I use
-it to switch between lighting scenes. You can choose your own actions using the
-included automation blueprint.
+it to switch between lighting scenes. The app lets you teach it a LIGHT button and choose a scene or lights to turn off.
 
 ```text
 Beoremote One → Beovision Horizon → Gateway → Home Assistant
@@ -40,8 +39,9 @@ and both devices on the same trusted local IPv4 network.
 1. Add the repository and install **Beoremote Gateway** from the app store.
 2. Start the app, click **Open Web UI**, and choose your TV from the discovered
    products. The [setup guide](beoremote_gateway/DOCS.md) covers the TV menu step.
-3. Use the [blueprint](blueprints/automation/beoremote_light_action.yaml) to choose
-   a LIGHT button and what it should do. Start in Dry run and check the trace first.
+3. Click **Add a button**, press a LIGHT function on your remote, give it a name
+   and choose a scene or lights to turn off. Save, release the button and press it
+   again to try it. No blueprint or device codes needed.
 
 The gateway starts receiving after you choose a TV. No IP addresses or long device
 identities to type. If you are upgrading from 0.2.2, set **Mode** to **auto** once

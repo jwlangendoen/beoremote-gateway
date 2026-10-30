@@ -140,27 +140,26 @@ class ActionManager:
 
     async def update(self, key, jid, name, kind, target):
         async with self.lock:
-            await self._owned(key, jid)
-            existing = await self.ha.request("GET", "config/automation/config/" + key)
+            existing = await self._owned(key, jid)
             config = make_rule(existing["triggers"][0]["event_data"], name, kind, target)
             return await self._save(config, name, kind, target)
 
     async def _save(self, config, name, kind, target):
         key = config["id"]
-            targets = await self.targets()
-            group = targets["scenes" if kind == "scene" else "lights"]
-            if not any(item["id"] == target for item in group):
-                raise ValueError("This scene or light is no longer available. Choose another one.")
-            existing = await self.ha.request("GET", "config/automation/config/" + key)
-            if existing is not None:
-                owned = owned_rule(existing, key)
-                if owned is None or owned["customized"]:
-                    raise ValueError("An existing automation for this button was edited outside this app. Review it in Home Assistant first.")
-            if existing != config:
-                await self.ha.request("POST", "config/automation/config/" + key, config)
-            await self._reload(key)
-            entity = await self._entity(key)
-            await self.ha.request("POST", "services/automation/turn_on", {"entity_id": entity})
+        targets = await self.targets()
+        group = targets["scenes" if kind == "scene" else "lights"]
+        if not any(item["id"] == target for item in group):
+            raise ValueError("This scene or light is no longer available. Choose another one.")
+        existing = await self.ha.request("GET", "config/automation/config/" + key)
+        if existing is not None:
+            owned = owned_rule(existing, key)
+            if owned is None or owned["customized"]:
+                raise ValueError("An existing automation for this button was edited outside this app. Review it in Home Assistant first.")
+        if existing != config:
+            await self.ha.request("POST", "config/automation/config/" + key, config)
+        await self._reload(key)
+        entity = await self._entity(key)
+        await self.ha.request("POST", "services/automation/turn_on", {"entity_id": entity})
         return {"id": key, "name": name.strip(), "edit_path": "/config/automation/edit/" + key}
 
     async def _owned(self, key, jid):
@@ -170,7 +169,7 @@ class ActionManager:
         rule = owned_rule(config, key)
         if rule is None or rule["tv_jid"] != jid or rule["customized"]:
             raise ValueError("Manage this automation in Home Assistant; it is not an unchanged action from this app.")
-        return rule
+        return config
 
     async def toggle(self, key, jid, enabled):
         if type(enabled) is not bool:

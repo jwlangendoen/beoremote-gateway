@@ -42,9 +42,26 @@ connection after automatic setup. Existing receiver hardware results above do no
 prove that new flow. The updated remote guide includes the IR-profile step; it does
 not mean the app can edit remote labels.
 
+## Guided actions (0.4.0)
+
+On 30 October 2026, 75 local automated checks passed on Python 3.12. These include
+learning timeout/cancel/release handling, blocking the learning press before event
+publication, stable automation IDs, friendly target lists, change/pause/removal,
+protecting unrelated or customized rules, ingress requests and HA client failures.
+The browser flow was also checked with a simulated TV and scenes.
+
+An isolated official Home Assistant Core 2026.10.4 container, with networking
+disabled, accepted the generated automation through its native configuration API.
+Create/list/change/pause/enable/delete worked. Saving did not activate the fixture
+scene. A fresh synthetic event activated a virtual input boolean; manual execution,
+stale events and future events did not. No real HA instance, TV or lights were
+contacted by this test. The Supervisor proxy and a physical button still need the
+full installation check below.
+
 ## Still to try
 
-- A full 0.3.0 setup through HA ingress and the repository installation.
+- A full 0.4.0 setup through HA ingress and the repository installation, including
+  learning/saving a physical button and checking the chosen real scene.
 - Importing the blueprint and checking it with a real LIGHT press in Dry run.
 - Beovision 14, Avant NG and other B&O models.
 - Standby, CONTROL, continuous dimming and held buttons on hardware.

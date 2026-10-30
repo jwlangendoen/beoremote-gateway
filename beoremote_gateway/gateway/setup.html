@@ -76,7 +76,7 @@ code { font-size:13px; overflow-wrap:anywhere; } [hidden] { display:none !import
     <details>
       <summary>Existing automations and more options</summary>
       <p>Turn off any older automation for the same button before adding it here, so one press doesn't run both. Learning a button does not run its action.</p>
-      <p>To change a saved action, choose <strong>Change</strong> and press the same button again. Saving replaces its previous choice. These are ordinary Home Assistant automations; use <strong>More options</strong> for other actions. Automations edited there are managed there from then on.</p>
+      <p>To change a saved action, choose <strong>Change</strong> and pick a different scene or light. These are ordinary Home Assistant automations; use <strong>More options</strong> for other actions. Automations edited there are managed there from then on.</p>
       <p>The optional blueprint is still available for advanced setups.</p>
       <div class="actions"><a class="button" href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fjwlangendoen%2Fbeoremote-gateway%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fbeoremote_light_action.yaml" target="_blank" rel="noopener noreferrer">Import blueprint</a><button id="copy" type="button" disabled>Copy TV identity</button><small id="copied" aria-live="polite"></small></div>
     </details>
@@ -98,16 +98,17 @@ const base = new URL(__BASE_JSON__, location.origin);
 const token = __TOKEN_JSON__;
 const el = id => document.getElementById(id);
 let status = null, selected = '', busy = false, copyValue = '';
+let refreshing=false;
 let actionBusy=false, loadedTV='', learningID='', targets={scenes:[],lights:[]}, editing=null;
 function actionNotice(text) { el('action-note').textContent=text; }
 function actionReady(data) { return data?.runtime?.listener && data.runtime.ha.delivery!=='disabled'; }
 function actionControls() {
   const ready=actionReady(status);
-  el('add').disabled=!ready || actionBusy || !!learningID;
+  el('add').disabled=!ready || actionBusy || !!learningID || !!editing;
   el('reload-actions').disabled=!ready || actionBusy;
   el('save').disabled=actionBusy || !el('action-target').value;
   el('cancel').disabled=actionBusy; el('retry').disabled=actionBusy;
-  for(const button of el('rules').querySelectorAll('button'))button.disabled=actionBusy || !!learningID;
+  for(const button of el('rules').querySelectorAll('button'))button.disabled=actionBusy || !!learningID || !!editing;
 }
 function showLearning(learning) {
   if(!learningID)return;
@@ -148,19 +149,29 @@ async function loadActions() {
     const controls=document.createElement('div');controls.className='actions';
     const link=document.createElement('a');link.textContent='More options';link.href=rule.edit_path;link.target='_top';
     if(!rule.customized) {
-      for(const [label,operation] of [['Change',()=>startLearning(rule)],[rule.enabled?'Pause':'Enable',()=>changeRule('toggle',{id:rule.id,enabled:!rule.enabled})],['Remove',()=>{if(confirm('Remove the action for “'+rule.name+'”?'))return changeRule('remove',{id:rule.id});}]]) {
+      for(const [label,operation] of [['Change',()=>editRule(rule)],[rule.enabled?'Pause':'Enable',()=>changeRule('toggle',{id:rule.id,enabled:!rule.enabled})],['Remove',()=>{if(confirm('Remove the action for “'+rule.name+'”?'))return changeRule('remove',{id:rule.id});}]]) {
         const button=document.createElement('button');button.type='button';button.textContent=label;button.addEventListener('click',operation);controls.append(button);
       }
     }
     controls.append(link);row.append(name,description,controls);el('rules').append(row);
   }
   loadedTV=jid;
-  actionNotice(data.actions.length?'Your buttons are ready. Press one on your remote to try it.':'No buttons yet. Add your first LIGHT button below.');
+  actionNotice(data.actions.length?'Your saved buttons appear below.':'No buttons yet. Add your first LIGHT button below.');
   actionControls();
 }
 async function changeRule(operation,body) {
   if(actionBusy)return;actionBusy=true;actionControls();
-  try {await api('api/actions/'+operation,body);await loadActions();}catch(error){actionNotice(error.message);}finally{actionBusy=false;actionControls();}
+  try {await api('api/actions/'+operation,body);el('saved').hidden=true;await loadActions();}catch(error){actionNotice(error.message);}finally{actionBusy=false;actionControls();}
+}
+async function editRule(rule) {
+  if(actionBusy)return;actionBusy=true;actionControls();
+  try {
+    targets=await api('api/targets');editing=rule;learningID='';
+    el('saved').hidden=true;el('learn-panel').hidden=false;el('action-form').hidden=false;el('retry').hidden=true;
+    el('learn-title').textContent='Change your action';el('learn-note').textContent='Choose what this button should do.';
+    el('button-name').value=rule.name;el('action-kind').value=rule.kind;renderTargets(rule.target);
+    el('button-name').focus();
+  }catch(error){actionNotice(error.message);}finally{actionBusy=false;actionControls();}
 }
 async function startLearning(rule=null) {
   if(actionBusy)return;actionBusy=true;editing=rule;el('saved').hidden=true;actionControls();
@@ -190,18 +201,28 @@ function show(data) {
   el('technical').hidden=!copyValue;
   el('details').textContent=[copyValue,data.addresses?.tv?'TV: '+data.addresses.tv:'',data.addresses?.gateway?'Gateway: '+data.addresses.gateway:''].filter(Boolean).join(' · ');
   if(!actionReady(data)) {
-    loadedTV=''; learningID=''; el('learn-panel').hidden=true; el('rules').replaceChildren(); actionNotice('Connect your TV to get started.');
+    loadedTV=''; learningID=''; editing=null; el('learn-panel').hidden=true; el('rules').replaceChildren(); actionNotice('Connect your TV to get started.');
   } else {
-    if(loadedTV && loadedTV!==data.tv_jid){loadedTV='';learningID='';el('rules').replaceChildren();el('learn-panel').hidden=true;}
+    if(loadedTV && loadedTV!==data.tv_jid){loadedTV='';learningID='';editing=null;el('rules').replaceChildren();el('learn-panel').hidden=true;}
     showLearning(data.learning);
   }
   actionControls();
   if (data.error) notice(data.error); else if(previousError) notice();
 }
-async function refresh() { try {
-  show(await api('api/status'));
-  if(actionReady(status) && !loadedTV && !actionBusy) { loadedTV=status.tv_jid; try {await loadActions();}catch(error){actionNotice(error.message);} }
-} catch(error) { notice(error.message); } }
+async function refresh() {
+  if(refreshing)return;refreshing=true;
+  try {
+    show(await api('api/status'));
+    if(actionReady(status) && !loadedTV && !actionBusy) {
+      loadedTV=status.tv_jid;
+      try {await loadActions();}catch(error){actionNotice(error.message);}
+    }
+    if(actionReady(status) && !learningID && !editing && status.learning?.id && !actionBusy) {
+      try {targets=await api('api/targets');learningID=status.learning.id;showLearning(status.learning);}
+      catch(error){actionNotice(error.message);}
+    }
+  }catch(error){notice(error.message);}finally{refreshing=false;}
+}
 async function scan() {
   if(busy)return; busy=true; notice(); el('scan').disabled=true; el('select').disabled=true;
   selected=''; el('products').replaceChildren(); el('scan-note').textContent='Looking for B&O products…';
@@ -236,7 +257,8 @@ el('action-target').addEventListener('change',actionControls);
 el('action-form').addEventListener('submit',async event=>{
   event.preventDefault();if(actionBusy)return;actionBusy=true;actionControls();
   try{
-    const saved=await api('api/actions/save',{session_id:learningID,name:el('button-name').value,kind:el('action-kind').value,target:el('action-target').value});
+    const fields={name:el('button-name').value,kind:el('action-kind').value,target:el('action-target').value};
+    const saved=editing?await api('api/actions/update',{id:editing.id,...fields}):await api('api/actions/save',{session_id:learningID,...fields});
     learningID='';editing=null;el('learn-panel').hidden=true;
     el('saved').textContent='Saved “'+saved.name+'”. Release the button, then press it again to try the action.';el('saved').hidden=false;
     await loadActions();

@@ -19,14 +19,14 @@ FIXED = (
     "tools/check_release.py", "tools/package.py", "tools/discover.py",
     "tools/release_files.py", "tools/export_release.py", "tools/container_check.sh",
     "tests/test_gateway.py", "tests/test_discovery.py", "tests/test_reliability.py",
-    "tests/test_public_release.py", "tests/test_setup.py",
+    "tests/test_public_release.py", "tests/test_setup.py", "tests/test_actions.py",
     "beoremote_gateway/gateway/setup.html",
     "beoremote_gateway/translations/en.yaml", "beoremote_gateway/translations/nl.yaml",
 )
 MODULES = (
     "__init__.py", "__main__.py", "buttons.py", "config.py", "discovery.py",
     "events.py", "health.py", "protocol.py", "server.py", "xmlstream.py",
-    "autodetect.py", "runtime.py", "setup.py", "web.py",
+    "autodetect.py", "runtime.py", "setup.py", "web.py", "actions.py", "learning.py", "ha.py",
 )
 
 

@@ -124,6 +124,10 @@ def make_app(controller, allowed_peers=frozenset({INGRESS_PEER})):
         await controller.toggle_action(data["id"], data["enabled"])
         return web.json_response({"ok": True})
 
+    async def update(request):
+        data = await fields(request, ("id", "name", "kind", "target"))
+        return web.json_response(await controller.update_action(data["id"], data["name"], data["kind"], data["target"]))
+
     async def remove(request):
         data = await fields(request, ("id",))
         await controller.remove_action(data["id"])
@@ -134,7 +138,7 @@ def make_app(controller, allowed_peers=frozenset({INGRESS_PEER})):
                     web.post("/api/pause", pause), web.get("/api/targets", targets),
                     web.get("/api/actions", actions), web.post("/api/learning/start", learn),
                     web.post("/api/learning/cancel", cancel), web.post("/api/actions/save", save),
-                    web.post("/api/actions/toggle", toggle), web.post("/api/actions/remove", remove)])
+                    web.post("/api/actions/update", update), web.post("/api/actions/toggle", toggle), web.post("/api/actions/remove", remove)])
     return app
 
 
