@@ -23,11 +23,13 @@ FIXED = (
     "tests/test_public_release.py", "tests/test_setup.py", "tests/test_actions.py",
     "beoremote_gateway/gateway/setup.html",
     "beoremote_gateway/translations/en.yaml", "beoremote_gateway/translations/nl.yaml",
+    "tests/test_sources.py", "docs/SOURCES.md",
 )
 MODULES = (
     "__init__.py", "__main__.py", "buttons.py", "config.py", "discovery.py",
     "events.py", "health.py", "protocol.py", "server.py", "xmlstream.py",
     "autodetect.py", "runtime.py", "setup.py", "web.py", "actions.py", "learning.py", "ha.py",
+    "sources.py",
 )
 
 

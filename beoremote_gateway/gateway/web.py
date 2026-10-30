@@ -9,6 +9,7 @@ import secrets
 from aiohttp import ClientError, ClientSession, ClientTimeout, web
 
 from .ha import HAError, HomeAssistant, USER_ID
+from .sources import SourceError
 
 LOG = logging.getLogger(__name__)
 
@@ -62,6 +63,8 @@ def make_app(controller, allowed_peers=frozenset({INGRESS_PEER}), admin_check=No
             response = web.json_response({"error": str(error)}, status=400)
         except HAError as error:
             response = web.json_response({"error": str(error)}, status=503)
+        except SourceError as error:
+            response = web.json_response({"error": str(error), "code": error.code}, status=503)
         except OSError as error:
             LOG.warning("setup_request_failed reason=%s", type(error).__name__)
             response = web.json_response({"error": "Could not save settings. Check app storage and try again."}, status=503)
@@ -147,12 +150,26 @@ def make_app(controller, allowed_peers=frozenset({INGRESS_PEER}), admin_check=No
         await controller.remove_action(data["id"])
         return web.json_response({"ok": True})
 
+    async def source_options(request):
+        data = await fields(request, ("enabled",))
+        return web.json_response(await controller.set_sources_enabled(data["enabled"]))
+
+    async def resume(request):
+        await fields(request, ())
+        await controller.resume()
+        return web.json_response(controller.status())
+
+    async def source_inventory(request):
+        await fields(request, ())
+        return web.json_response(await controller.inspect_sources())
+
     app.add_routes([web.get("/", index), web.get("/api/status", status),
                     web.get("/api/devices", devices), web.post("/api/select", select),
-                    web.post("/api/pause", pause), web.get("/api/targets", targets),
+                    web.post("/api/pause", pause), web.post("/api/resume", resume), web.get("/api/targets", targets),
                     web.get("/api/actions", actions), web.post("/api/learning/start", learn),
                     web.post("/api/learning/cancel", cancel), web.post("/api/actions/save", save),
-                    web.post("/api/actions/update", update), web.post("/api/actions/toggle", toggle), web.post("/api/actions/remove", remove)])
+                    web.post("/api/actions/update", update), web.post("/api/actions/toggle", toggle), web.post("/api/actions/remove", remove),
+                    web.post("/api/sources/options", source_options), web.post("/api/sources/inventory", source_inventory)])
     return app
 
 

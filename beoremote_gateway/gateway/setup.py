@@ -13,6 +13,7 @@ from .actions import ActionManager, rule_id
 from .config import Options
 from .learning import ButtonLearning
 from .runtime import GatewayRuntime
+from .sources import SourceSettings
 
 LOG = logging.getLogger(__name__)
 SETUP_PATH = Path("/data/selected-tv.json")
@@ -55,6 +56,7 @@ class SetupController:
         self.options, self.path = options, Path(path)
         self.scanner, self.route, self.runtime_factory = scanner, route, runtime_factory
         self.selection = self.runtime = self.worker = None
+        self.sources = SourceSettings(self.path.parent)
         self.learning, self.actions = ButtonLearning(), actions or ActionManager()
         self.devices = []
         self.scanned_at = float("-inf")
@@ -98,6 +100,8 @@ class SetupController:
                 raise ValueError("Search again, then choose a product from the list.")
             selection = {"jid": record["jid"], "name": record["name"], "enabled": True}
             save_selection(self.path, selection)
+            if self.selection is not None and self.selection["jid"] != jid:
+                await self.sources.close()
             self.selection = selection
             await self._apply(record)
             self.wake.set()
@@ -113,6 +117,19 @@ class SetupController:
             await self._close_runtime()
             self.state, self.error = "paused", ""
             self.wake.set()
+
+    async def resume(self):
+        if self.options.mode != "auto":
+            raise ValueError("Manual mode is controlled in the app's Configuration tab.")
+        async with self.lock:
+            if self.selection is None:
+                raise ValueError("Choose your TV first.")
+            selection = {**self.selection, "enabled": True}
+            save_selection(self.path, selection)
+            self.selection = selection
+            self.state, self.error = "waiting", ""
+            self.wake.set()
+        await self.reconcile()
 
     async def _close_runtime(self):
         self.learning.finish()
@@ -178,7 +195,8 @@ class SetupController:
     def status(self):
         result = {"mode": self.options.mode, "state": self.state, "error": self.error,
                   "selection": self.selection, "gateway_name": self.options.gateway_name,
-                  "runtime": self.snapshot(), "learning": self.learning.status()}
+                  "runtime": self.snapshot(), "learning": self.learning.status(),
+                  "sources": self.sources.status()}
         if result["learning"]["state"] == "captured":
             event = self.learning.capture(result["learning"]["id"], self.action_tv())
             result["learning"]["button_id"] = rule_id(event)
@@ -195,6 +213,47 @@ class SetupController:
                 or not self.runtime.snapshot()["listener"]):
             raise ValueError("Connect your TV first. In manual mode, also enable Publish HA events.")
         return self.runtime.options.horizon_jid
+
+    async def set_sources_enabled(self, enabled):
+        async with self.lock:
+            await self.sources.set_enabled(enabled)
+        return self.sources.status()
+
+    async def inspect_sources(self):
+        if self.sources.lock.locked():
+            raise ValueError("A TV inventory is already running. Wait for it to finish.")
+        async with self.sources.lock, self.lock:
+            if not self.sources.enabled:
+                raise ValueError("Enable source management before connecting with ADB.")
+            if self.options.mode == "auto":
+                if self.selection is None:
+                    raise ValueError("Choose your TV first.")
+                jid = self.selection["jid"]
+                # A TV may answer its native API while missing from a fresh mDNS
+                # browse. Reuse the receiver's address only after checking its
+                # product identity; never contact ADB on an unverified old IP.
+                address = None
+                if self.runtime is not None and self.runtime.options.horizon_jid == jid:
+                    candidate = self.runtime.options.horizon_address
+                    if await self.sources.verify(candidate, jid):
+                        address = candidate
+                if address is None:
+                    devices = await self.scan()
+                    record = next((item for item in devices if item["jid"] == jid), None)
+                    if record is None:
+                        raise ValueError("Wake your selected TV and search again. No other device will be used.")
+                    candidate, _local = self.route(record["addresses"])
+                    if not await self.sources.verify(candidate, jid):
+                        raise ValueError("The TV identity could not be confirmed. Wake your TV and try again.")
+                    address = candidate
+            elif self.options.mode in ("listen", "advertise"):
+                address = self.options.horizon_address
+                jid = self.options.horizon_jid
+                if not await self.sources.verify(address, jid):
+                    raise ValueError("The TV identity could not be confirmed. Wake your TV and try again.")
+            else:
+                raise ValueError("Choose your TV in automatic mode first.")
+            return {**await self.sources.adb.inspect(address), "tv_jid": jid}
 
     async def start_learning(self):
         async with self.lock:
@@ -229,4 +288,7 @@ class SetupController:
             self.worker.cancel()
             await asyncio.gather(self.worker, return_exceptions=True)
         async with self.lock:
-            await self._close_runtime()
+            try:
+                await self._close_runtime()
+            finally:
+                await self.sources.close()

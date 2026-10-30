@@ -27,6 +27,11 @@ label.field { display:block; margin:16px 0; font-weight:600; }
 input[type=text],select { display:block; width:100%; margin-top:6px; border:1px solid var(--line); border-radius:8px; padding:11px; background:var(--card); color:var(--text); font:inherit; }
 .rule { border-top:1px solid var(--line); padding:16px 0; } .rule strong { display:block; } .rule .actions { margin-top:10px; }
 .rule button { padding:6px 12px; font-size:14px; } #saved { padding:12px; background:color-mix(in srgb,var(--accent) 8%,var(--card)); border-radius:8px; }
+.source-choice { display:flex; gap:10px; align-items:center; cursor:pointer; } .source-choice input { accent-color:var(--accent); width:18px; height:18px; }
+#source-steps { margin-top:20px; border-top:1px solid var(--line); padding-top:20px; } #source-note { margin-top:12px; }
+#source-steps h3 { font-size:18px; margin:0 0 12px; } #source-steps details { margin-bottom:16px; }
+#source-apps { list-style:none; padding:0; margin:16px 0; } #source-apps li { border-top:1px solid var(--line); padding:10px 0; overflow-wrap:anywhere; }
+#source-apps strong,#source-apps small { display:block; }
 ol { padding-left:23px; } li { margin:7px 0; } details { margin-top:16px; } summary { cursor:pointer; }
 .help { margin-top:24px; } .help details { padding-top:16px; border-top:1px solid var(--line); } details p,details ol { margin-top:12px; }
 code { font-size:13px; overflow-wrap:anywhere; } [hidden] { display:none !important; }
@@ -37,6 +42,7 @@ dialog::backdrop { background:#0006; } #learn-note { margin-bottom:16px; } #dial
 </style>
 <main>
   <h1>Beoremote Gateway</h1>
+  <p class="muted">Use your Beoremote to control Home Assistant.</p>
   <p id="notice" role="alert" hidden></p>
   <section aria-labelledby="connection-title">
     <div class="heading">
@@ -45,6 +51,7 @@ dialog::backdrop { background:#0006; } #learn-note { margin-bottom:16px; } #dial
     </div>
     <p id="connection" class="muted" hidden></p>
     <p id="manual" hidden>For automatic setup, set Mode to auto in the app's Configuration tab and restart.</p>
+    <button id="resume" type="button" hidden>Resume button reception</button>
     <div id="chooser" hidden>
       <button id="scan" type="button">Find my TV</button>
       <div id="products" role="group" aria-label="Discovered B&O products"></div>
@@ -55,19 +62,47 @@ dialog::backdrop { background:#0006; } #learn-note { margin-bottom:16px; } #dial
       </div>
     </div>
   </section>
-  <section aria-labelledby="actions-title">
-    <div class="heading"><h2 id="actions-title">Your buttons</h2><button id="add" class="primary" type="button" disabled>Add a button</button></div>
+  <section id="actions-section" aria-labelledby="actions-title" hidden>
+    <div class="heading"><h2 id="actions-title">Button actions</h2><button id="add" class="primary" type="button" disabled>Add a button</button></div>
+    <p class="muted">Choose what happens in Home Assistant when you press a LIGHT button.</p>
     <p id="action-note" role="status"></p>
     <p id="saved" role="status" hidden></p>
-    <p id="empty" class="muted" hidden>No buttons yet.</p>
+    <p id="empty" class="muted" hidden>Add a button to run a scene, a script or another Home Assistant action.</p>
     <div id="rules"></div>
     <button id="reload-actions" type="button" disabled>Refresh</button>
   </section>
-  <div class="help">
+  <section id="sources-section" aria-labelledby="sources-title" hidden>
+    <div class="heading"><h2 id="sources-title">TV sources</h2><span class="badge">Preview</span></div>
+    <p class="muted">Find installed apps on your TV. Adding or changing source shortcuts is not available yet.</p>
+    <label class="source-choice"><input id="sources-enabled" type="checkbox">Show installed TV apps</label>
+    <div id="source-steps" hidden>
+      <h3>Connect to your TV</h3>
+      <p>Turn on your TV and enable network debugging (ADB) in its developer settings. Then find the installed apps.</p>
+      <details>
+        <summary>Help with network debugging</summary>
+        <ol>
+          <li>Turn on your TV and enable network ADB in its developer settings. The available settings vary by firmware; USB debugging alone may not enable the network connection.</li>
+          <li>Click <strong>Find TV apps</strong>. If your TV asks, allow the debugging connection. Choose to remember it if that option is available.</li>
+          <li>If authorization was needed, click the button again after allowing it.</li>
+        </ol>
+        <p class="muted">This connection requires network ADB on port 5555. It only reads the installed apps.</p>
+      </details>
+      <button id="source-inspect" class="primary" type="button">Find TV apps</button>
+      <p id="source-note" class="muted" role="status"></p>
+      <div id="source-inventory" hidden>
+        <h3>Installed apps</h3>
+        <label class="source-choice"><input id="source-system" type="checkbox">Include system apps</label>
+        <ul id="source-apps"></ul>
+        <p id="source-empty" class="muted" hidden>No added apps found. Include system apps to see the full list.</p>
+        <p class="muted">Apps are listed by their Android package ID.</p>
+      </div>
+    </div>
+  </section>
+  <div class="help" id="setup-help" hidden>
     <details id="remote-help">
       <summary>No button received?</summary>
       <p>Turn on your TV. On the Beoremote, open <strong>LIST → LIGHT</strong> and press a function. If it arrives in the app, no TV menu changes are needed.</p>
-      <p>If nothing arrives, select the gateway on your Horizon:</p>
+      <p>For Beovision Horizon, select the gateway on the TV:</p>
       <ol>
         <li>Open <strong>MENU → Settings</strong>.</li>
         <li>Highlight <strong>Service Menu</strong> and press the <strong>red button before the centre button</strong>.</li>
@@ -82,14 +117,14 @@ dialog::backdrop { background:#0006; } #learn-note { margin-bottom:16px; } #dial
         <li>Open <strong>LIST → Settings → Advanced → Products</strong>. Show or add the separate <strong>Beovision (infrared/IR)</strong> profile.</li>
         <li>Select that <strong>Beovision</strong> product at the top of LIST.</li>
         <li>Open <strong>Settings → Advanced → Light menu → Rename</strong>. Show and Move control visibility and order.</li>
-        <li>Switch back to your Bluetooth-paired Horizon.</li>
+        <li>Switch back to your Bluetooth-paired TV.</li>
       </ol>
-      <p class="muted">Keep your Horizon pairing. Names on the remote and in this app are set separately.</p>
+      <p class="muted">Keep your TV pairing. Names on the remote and in this app are set separately.</p>
     </details>
     <details>
       <summary>Connection settings</summary>
       <p><code id="details"></code></p>
-      <div class="actions"><button id="pause" type="button" hidden>Stop gateway</button><button id="resume" type="button" hidden>Start gateway</button><button id="copy" type="button" disabled>Copy TV identity</button><small id="copied" aria-live="polite"></small></div>
+      <div class="actions"><button id="pause" type="button" hidden>Pause button reception</button><button id="copy" type="button" disabled>Copy TV identity</button><small id="copied" aria-live="polite"></small></div>
       <p class="muted">To change the name in the TV menu, use Name in the TV menu in the app's optional Configuration settings.</p>
     </details>
     <details>
@@ -123,16 +158,17 @@ const token = __TOKEN_JSON__;
 const el = id => document.getElementById(id);
 let status=null, selected='', busy=false, copyValue='', choosing=false, refreshing=false;
 let actionBusy=false, loadedTV='', learningID='', targets={scenes:[],lights:[],scripts:[]}, editing=null, rules=[], known=null;
+let sourceBusy=false, sourceSaving=false, sourceApps=[], sourceTV='';
 function actionNotice(text) { el('action-note').textContent=text; }
 function dialogError(text='') { el('dialog-error').textContent=text; el('dialog-error').hidden=!text; }
 function actionReady(data) { return data?.runtime?.listener && data.runtime.ha.delivery!=='disabled'; }
 function actionControls() {
-  const ready=actionReady(status), modal=el('learn-panel').open;
-  el('add').disabled=!ready || actionBusy || modal;
-  el('reload-actions').disabled=!ready || actionBusy || modal;
+  const ready=actionReady(status), modal=el('learn-panel').open, sourcePending=sourceBusy || sourceSaving;
+  el('add').disabled=!ready || actionBusy || modal || sourcePending;
+  el('reload-actions').disabled=!ready || actionBusy || modal || sourcePending;
   el('save').disabled=actionBusy || (el('action-kind').value!=='custom' && !el('action-target').value);
   for(const id of ['cancel','retry','edit-known','learn-help'])el(id).disabled=actionBusy;
-  for(const button of el('rules').querySelectorAll('button'))button.disabled=actionBusy || modal;
+  for(const button of el('rules').querySelectorAll('button'))button.disabled=actionBusy || modal || sourcePending;
 }
 function openPanel() { if(!el('learn-panel').open)el('learn-panel').showModal(); }
 function closePanel() { el('learn-panel').close(); learningID=''; editing=null; known=null; dialogError(); actionControls(); }
@@ -238,25 +274,76 @@ function show(data) {
   el('manual').hidden=automatic; el('chooser').hidden=!automatic || !choosing;
   el('change-tv').hidden=!automatic || !hasTV || choosing;
   el('close-chooser').hidden=!hasTV;
-  const labels={choose_tv:'Wake your TV to find it.',active:data.runtime.peers?'Connected':'Waiting for TV',waiting:'Waiting for TV',paused:'Gateway stopped',disabled:'Gateway disabled',error:'Needs attention',listen:'Manual setup',advertise:'Manual setup'};
+  const labels={choose_tv:'Turn on your TV to find it.',active:data.runtime.peers?'Connected':'Waiting for TV',waiting:'Waiting for TV',paused:'Button reception paused',disabled:'Gateway disabled',error:'Needs attention',listen:'Manual setup',advertise:'Manual setup'};
   el('state').textContent=labels[data.state] || data.state;
   el('connection-title').textContent=data.selection?.name || (hasTV?'Your TV':'Choose your TV');
   el('gateway-name').textContent=data.gateway_name;
-  el('connection').hidden=hasTV;el('connection').textContent='Your TV and Home Assistant need to be on the same network. Only Horizon has been tested.';
+  el('connection').hidden=hasTV;el('connection').textContent='Your TV and Home Assistant need to be on the same network.';
   el('pause').hidden=!automatic || !data.selection?.enabled;
   el('resume').hidden=!automatic || !data.selection || data.selection.enabled;
+  el('actions-section').hidden=!hasTV;
+  el('setup-help').hidden=!hasTV;
   copyValue=data.tv_jid || ''; el('copy').disabled=!copyValue;
   el('details').textContent=[copyValue,data.addresses?.tv?'TV: '+data.addresses.tv:'',data.addresses?.gateway?'Gateway: '+data.addresses.gateway:''].filter(Boolean).join(' · ');
   if(!actionReady(data)) {
     loadedTV=''; rules=[]; closePanel(); el('rules').replaceChildren();el('empty').hidden=true;
-    actionNotice(hasTV?'Waiting for the gateway. Turn on your TV.':'Choose your TV first.');
+    actionNotice(!hasTV?'Choose your TV first.':data.state==='paused'?'Resume button reception to add or change actions.':data.state==='disabled'?'Enable the gateway in the app configuration to set up buttons.':data.state==='error'?'Check the connection message above.':'Connecting to your TV…');
   } else {
+    if(!loadedTV)actionNotice('Loading button actions…');
     if(loadedTV && loadedTV!==data.tv_jid){loadedTV='';rules=[];closePanel();el('rules').replaceChildren();}
     showLearning(data.learning);
   }
   actionControls();
+  showSources(data);
   if(data.error)notice(data.error);else if(previousError)notice();
 }
+function renderSourceApps() {
+  const visible=sourceApps.filter(app=>el('source-system').checked || !app.system);
+  el('source-apps').replaceChildren();el('source-empty').hidden=!!visible.length;
+  for(const app of visible) {
+    const item=document.createElement('li'),name=document.createElement('strong');
+    name.textContent=app.name;item.append(name);
+    if(app.name!==app.package){const identifier=document.createElement('small');identifier.textContent=app.package;item.append(identifier);}
+    el('source-apps').append(item);
+  }
+}
+function showSources(data) {
+  const enabled=!!data.sources?.enabled;
+  el('sources-section').hidden=!data.tv_jid;
+  const pending=sourceBusy || sourceSaving;
+  if(!sourceSaving)el('sources-enabled').checked=enabled;
+  el('sources-enabled').disabled=pending;
+  el('source-steps').hidden=!enabled;el('source-inspect').disabled=sourceBusy || !enabled;
+  el('source-inspect').textContent=sourceBusy?'Finding apps…':'Find TV apps';
+  el('source-inspect').disabled=pending || !enabled;
+  for(const id of ['change-tv','select','pause','resume'])el(id).disabled=pending || (id==='select' && !selected);
+  if(sourceTV!==data.tv_jid || !enabled){sourceTV=data.tv_jid;sourceApps=[];el('source-inventory').hidden=true;el('source-note').textContent=data.sources?.error || '';}
+  actionControls();
+}
+el('sources-enabled').addEventListener('change',async()=>{
+  if(sourceBusy || sourceSaving || busy){showSources(status);return;}const enabled=el('sources-enabled').checked;sourceSaving=true;busy=true;showSources(status);
+  try{status.sources=await api('api/sources/options',{enabled});}
+  catch(error){notice(error.message);}
+  finally{sourceSaving=false;busy=false;showSources(status);}
+});
+el('source-system').addEventListener('change',renderSourceApps);
+el('source-inspect').addEventListener('click',async()=>{
+  if(sourceBusy || busy)return;sourceBusy=true;busy=true;notice();showSources(status);
+  el('source-inventory').hidden=true;sourceApps=[];
+  el('source-note').textContent='Checking the TV connection. Look for an authorization prompt on the TV.';
+  try {
+    const result=await api('api/sources/inventory',{});
+    show(await api('api/status'));
+    if(result.tv_jid!==status.tv_jid)throw new Error('The selected TV changed. Check the new TV again.');
+    if(result.state==='authorization_required')el('source-note').textContent='Allow the debugging connection on your TV, then click Find TV apps again.';
+    else if(result.state!=='connected')el('source-note').textContent='Could not connect to network debugging. Check that your TV is on and network ADB is enabled on port 5555, then try again.';
+    else {
+      sourceApps=result.apps;renderSourceApps();el('source-inventory').hidden=false;
+      el('source-note').textContent='Connected · '+(result.model || 'TV')+' · Android '+(result.android || 'unknown')+' · '+sourceApps.length+' packages';
+    }
+  }catch(error){el('source-note').textContent=error.message;}
+  finally{sourceBusy=false;busy=false;showSources(status);}
+});
 async function refresh() {
   if(refreshing)return;refreshing=true;
   const initial=status===null;
@@ -319,7 +406,7 @@ el('select').addEventListener('click',async()=>{
   finally{busy=false;el('select').disabled=!selected;}
 });
 el('pause').addEventListener('click',async()=>{if(busy)return;busy=true;notice();try{show(await api('api/pause',{}));}catch(error){notice(error.message);}finally{busy=false;}});
-el('resume').addEventListener('click',async()=>{choosing=true;show(status);await scan();});
+el('resume').addEventListener('click',async()=>{if(busy)return;busy=true;el('resume').disabled=true;notice();try{show(await api('api/resume',{}));}catch(error){notice(error.message);}finally{busy=false;showSources(status);}});
 el('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(copyValue);el('copied').textContent='Copied';}catch{el('copied').textContent='Copy the identity shown above.';}});
 (async()=>{await refresh();if(status?.mode==='auto' && !status.tv_jid)await scan();})();
 setInterval(()=>{if(!busy)refresh();},2000);

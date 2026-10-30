@@ -1,4 +1,4 @@
-# Beoremote Gateway 0.5.1
+# Beoremote Gateway 0.6.0-dev4
 
 The idea is to use Home Assistant a bit like BeoLiving Intelligence: your
 Beoremote One's LIGHT buttons run actions for your home. You need
@@ -30,6 +30,23 @@ you'll see its existing name and action instead of creating another one.
 Use **Change** or **Pause** beside a button, or **Open in Home Assistant** for
 more options. Scripts with required inputs need the Home Assistant editor.
 Disable any older automation for the same button so one press doesn't run both.
+
+## Preview: TV sources
+
+The development version includes **TV sources** below **Button actions**.
+Select **Show installed TV apps** to explore this optional feature. Adding or
+changing source shortcuts is not available in this preview.
+
+Turn on your TV and enable network debugging (ADB) in its developer settings.
+Choose **Find TV apps**, approve the debugging connection on the TV if asked,
+and try again. **Help with network debugging** explains the connection requirements.
+
+Apps are listed by Android package ID. Select **Include system apps** for the
+full inventory. The check only reads app information; it does not install or
+open apps or change sources. Turning the option off closes its debugging connection.
+
+The existing administrator and ingress checks also protect this feature.
+Use network ADB only on your trusted LAN. Ordinary button actions do not need ADB.
 
 ## No button received?
 

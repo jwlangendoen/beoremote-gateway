@@ -37,6 +37,30 @@ except urllib.error.HTTPError as error:
  assert error.code==403
 else:
  raise AssertionError("Setup UI accepted a direct connection")'
+  if [ "$mode" = defaults ]; then
+    docker exec -i "$container" python - <<'PY'
+import asyncio
+from pathlib import Path
+from gateway.sources import AdbInventory
+
+async def check():
+    adb = AdbInventory('/data')
+    try:
+        await adb._start()
+        key = (adb.directory / 'adbkey').read_bytes()
+        assert Path('/root/.android').resolve() == adb.directory.resolve()
+        assert (adb.directory / 'adbkey').stat().st_mode & 0o777 == 0o600
+        assert 'List of devices attached' in await adb._command('-P', str(adb.port), 'devices')
+        await adb.close()
+        await adb._start()
+        assert (adb.directory / 'adbkey').read_bytes() == key
+    finally:
+        await adb.close()
+
+asyncio.run(check())
+print('Offline ADB startup, persistent key reuse and isolated shutdown passed.')
+PY
+  fi
   docker stop --timeout 10 "$container" >/dev/null
   test "$(docker inspect --format '{{.State.ExitCode}}' "$container")" = 0
   echo "Container passed: $mode startup, ingress restriction, heartbeat and graceful shutdown."

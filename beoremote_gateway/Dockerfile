@@ -1,6 +1,6 @@
 FROM python:3.13-slim-trixie
 
-ARG BUILD_VERSION=0.5.1
+ARG BUILD_VERSION=0.6.0-dev4
 ARG BUILD_ARCH=aarch64
 LABEL io.hass.version="${BUILD_VERSION}" \
       io.hass.type="app" \
@@ -8,6 +8,9 @@ LABEL io.hass.version="${BUILD_VERSION}" \
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends adb \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -s /data/adb/.android /root/.android
 COPY requirements.txt .
 COPY LICENSE ./LICENSE
 RUN pip install --no-cache-dir -r requirements.txt \

@@ -118,6 +118,24 @@ household equipment. Supervisor's identity-header and WebSocket contracts were
 checked in its 2026.10.0 source. A physical button check after upgrading remains
 necessary, as does a full test of the deployed Supervisor ingress path.
 
+### Source-extension development candidate
+
+The 0.6.0 development candidate keeps the 0.5.1 administrator, ingress and
+write-token boundary. Its new routes accept only a source opt-in boolean or an
+empty inventory request; they do not accept an address or free ADB command.
+The selected product's native `/BeoDevice` identity is checked before using its
+current or remembered receiver IP. This prevents accidental device mix-ups on
+the trusted LAN; the TV's HTTP identity is not cryptographic authentication.
+Identity replies are bounded, time-limited and read without redirects or proxy
+environment settings.
+
+ADB uses a private persistent key and a separate loopback daemon. Only fixed
+model, Android-version and package-list commands are offered. Turning off the
+extension or closing the app stops its own daemon. No helper APK installer or
+TV source writes are implemented yet. The standalone players remain outside
+its management. The OS-package scan counts above describe 0.5.1, not the newly
+added Debian ADB packages; the candidate has not received a new full image scan.
+
 Relevant upstream code:
 [Core ingress session identity](https://github.com/home-assistant/core/blob/2026.10.4/homeassistant/components/hassio/websocket_api.py),
 [Supervisor ingress headers](https://github.com/home-assistant/supervisor/blob/2026.10.0/supervisor/api/ingress.py),

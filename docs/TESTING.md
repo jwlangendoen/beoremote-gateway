@@ -114,6 +114,57 @@ See [the security review](SECURITY.md) for dependency scans, OS-package findings
 trust boundaries and remaining limits. No household equipment was attacked or
 reconfigured for these tests.
 
+## Optional source extension (0.6.0-dev3, development only)
+
+On 30 October 2026, all 121 tests passed locally on Python 3.12. These cover the
+existing gateway plus source opt-in, exact TV identity checks, missing discovery
+records, stale addresses, ADB authorization/timeout states, fixed inventory
+commands, private persistence and administrator/page-token checks. The TCP frame
+deadline test accepts either EOF or a reset within the same deadline on macOS.
+
+The aarch64 image passed default/auto/disabled startup, ingress restriction,
+heartbeat and clean shutdown checks with external networking disabled. The real
+Debian ADB client started its own daemon, reused a private key and shut down
+without touching other ADB servers.
+
+A local development installation on the Green was tested through real Supervisor
+ingress, retaining the existing interface and five HA button actions. The TV
+choice and source option survived updates. Discovery found the selected Horizon,
+and its native product identity matched the selected JID. Its ADB TCP port was
+reachable, but the TV did not complete the ADB connection; an existing Mac ADB
+session also reported this TV offline. The package inventory has not succeeded
+on hardware yet. A physical LIGHT press has not been verified for this candidate.
+
+The original 0.5.0 repository installation was backed up and restored to running
+after the test. The candidate's receiver is paused, source management disabled,
+and its boot setting is manual. No HA button actions, TV sources, player APKs or
+TV settings were changed. Nothing was published from this development work.
+
+## Setup flow review (0.6.0-dev4, development only)
+
+On 30 October 2026, 123 tests passed locally on Python 3.12. Added checks verify
+that resuming keeps the saved TV identity, does not choose another product, and
+requires the page token and current administrator access.
+
+A separate browser pass used a clean local fixture with simulated TV discovery,
+LIGHT presses, HA scripts and ADB results. It covered TV selection, adding a
+script action, optional app inventory, pending TV authorization, connection
+failure, system-app filtering, pausing and direct resumption. At 390 pixels the
+content reflowed without clipped controls; keyboard Tab and Enter reached and
+opened help with a visible focus indicator. This was not a full screen-reader
+or accessibility-conformance test. Hardware authorization, APK installation and
+source editing were not exercised by the fixture.
+
+The review removed player-specific assumptions, references to earlier separate
+flows, an inaccurate paused-state instruction and the source checkbox's visual
+reset while saving. Source editing is explicitly unavailable in this preview.
+
+After a partial HA backup, the local candidate was uninstalled. The original
+repository app was updated through its existing repository to 0.5.1; automatic
+updates remained enabled. One Beoremote installation remained, with all five
+existing button actions present. The temporary management terminal was stopped.
+The 0.6.0 development changes are separate from that installed repository version.
+
 ## Still to try
 
 - A full 0.5.0 setup through HA ingress and the repository installation, including
@@ -124,6 +175,7 @@ reconfigured for these tests.
 - Recovery after a real network outage or a full HA host reboot.
 - A physical amd64 HA installation, alternative XMPP ports and TV acceptance of
   the GetContactInfo metadata response.
+- Complete ADB authorization/inventory and physical LIGHT checks for 0.6.0.
 
 If you try another setup, please include its model, firmware and which buttons
 or actions worked.

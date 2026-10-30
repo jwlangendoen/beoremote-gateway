@@ -292,7 +292,12 @@ class ConnectionTests(unittest.IsolatedAsyncioTestCase):
             await writer.drain()
             self.assertTrue(await asyncio.wait_for(reader.read(4096), 1))
             task = asyncio.create_task(trickle())
-            self.assertEqual(await asyncio.wait_for(reader.read(), 0.3), b"")
+            try:
+                closed = await asyncio.wait_for(reader.read(), 0.3)
+            except ConnectionError:
+                # TCP may reset when a trickling peer writes after the deadline.
+                closed = b""
+            self.assertEqual(closed, b"")
             capture.assert_not_called()
         finally:
             if task is not None:
