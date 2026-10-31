@@ -362,6 +362,8 @@ class TVSources:
                     return await self.status(adb, address, tv)
             except Exception:
                 pass
+            if isinstance(error, ValueError):
+                raise error
             raise ValueError("The order was not confirmed. Refresh or restore the previous setup before continuing.") from error
         return await self.status(adb, address, tv)
 
