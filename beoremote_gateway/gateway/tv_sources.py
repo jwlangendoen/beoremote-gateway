@@ -18,7 +18,7 @@ ENTRY_DEFAULTS = {"source_list": "tv", "launch_entity": "", "launch_source": ""}
 
 def helper_entries(entries):
     return [{**{key: entry[key] for key in ("id", "name", "kind", "target", "slot", "callback")},
-             "source_list": entry.get("source_list", "tv")} for entry in entries]
+             "source_list": entry.get("source_list", "tv"), "cancel_launch": entry.get("launch_cancel", False)} for entry in entries]
 
 
 def private_write(path, data):
@@ -52,18 +52,37 @@ def automation(tv, entry, webhook):
     launch = []
     if entry.get("launch_entity"):
         entity = entry["launch_entity"]
+        variables = {"launch_player": entity, "launch_app": entry["launch_source"],
+                     "launch_deadline": "{{ now().timestamp() + 20 }}",
+                     # A remote's 'on' state means connected, not physically awake.
+                     # Resolve by device registry, never by a guessed entity name.
+                     "launch_remote": "{{ (device_entities(device_id(launch_player)) | select('match', '^remote[.]') | select('in', integration_entities('apple_tv')) | list | first | default('')) if launch_player in integration_entities('apple_tv') and device_id(launch_player) else '' }}"}
+        remaining = "{{ [0, launch_deadline | float(0) - now().timestamp()] | max }}"
+        ready = "{{ states(launch_player) not in ['off', 'standby', 'unknown', 'unavailable'] and (state_attr(launch_player, 'supported_features') | int(0) | bitwise_and(2048)) != 0 and launch_app in (state_attr(launch_player, 'source_list') or []) }}"
+        launch += [{"if": [{"condition": "template", "value_template": "{{ trigger is defined and trigger.platform == 'webhook' and trigger.json.get('cancel', false) }}"}],
+                    "then": [{"stop": "Source selection cancelled"}]},
+                   {"variables": variables},
+                   {"if": [{"condition": "template", "value_template": "{{ launch_remote != '' }}"}],
+                    "then": [
+                        {"if": [{"condition": "template", "value_template": "{{ not is_state(launch_remote, 'on') }}"}],
+                         "then": [{"action": "remote.turn_on", "target": {"entity_id": "{{ launch_remote }}"}}]},
+                        {"wait_template": "{{ is_state(launch_remote, 'on') }}", "timeout": remaining, "continue_on_timeout": False},
+                        {"if": [{"condition": "template", "value_template": "{{ states(launch_player) in ['off', 'standby', 'unknown', 'unavailable'] }}"}],
+                         "then": [{"action": "remote.send_command", "target": {"entity_id": "{{ launch_remote }}"}, "data": {"command": "wakeup"}}]}],
+                    "else": []}]
         if entry.get("launch_wake"):
-            launch += [{"if": [{"condition": "state", "entity_id": entity, "state": "off"}],
-                        "then": [{"action": "media_player.turn_on", "target": {"entity_id": entity}}]},
-                       {"wait_template": "{{ states('" + entity + "') not in ['off', 'unknown', 'unavailable'] }}",
-                        "timeout": {"seconds": 3}, "continue_on_timeout": False},
-                       {"condition": "template", "value_template": guard}]
-        launch.append({"action": "media_player.select_source", "target": {"entity_id": entity},
-                       "data": {"source": entry["launch_source"]}})
+            launch[-1]["else"] = [{"wait_template": "{{ states(launch_player) not in ['unknown', 'unavailable'] }}", "timeout": remaining, "continue_on_timeout": False},
+                                   {"if": [{"condition": "template", "value_template": "{{ states(launch_player) in ['off', 'standby'] and (state_attr(launch_player, 'supported_features') | int(0) | bitwise_and(128)) != 0 }}"}],
+                                    "then": [{"action": "media_player.turn_on", "target": {"entity_id": entity}}]}]
+        launch += [{"wait_template": ready, "timeout": remaining, "continue_on_timeout": False},
+                   {"condition": "template", "value_template": "{{ now().timestamp() < launch_deadline | float(0) }}"},
+                   {"action": "media_player.select_source", "target": {"entity_id": entity}, "data": {"source": entry["launch_source"]}}]
     return {"id": automation_id(tv, entry["id"]), "alias": "Beoremote source · " + entry["name"],
-            "description": "Managed by Beoremote Gateway source setup.", "mode": "single", "max_exceeded": "silent",
+            "description": "Managed by Beoremote Gateway source setup.", "mode": "restart" if launch else "single", "max_exceeded": "silent",
             "triggers": [{"trigger": "webhook", "webhook_id": webhook, "allowed_methods": ["POST"], "local_only": True}],
-            "conditions": [], "actions": [{"condition": "template", "value_template": guard}, *launch, *actions]}
+            # Reject stale/foreign webhooks before restart can cancel a valid run.
+            "conditions": [{"condition": "template", "value_template": guard}] if launch else [],
+            "actions": [{"condition": "template", "value_template": guard}, *launch, *actions]}
 
 
 def validate_entry(data, status, old=None):
@@ -155,7 +174,7 @@ class TVSources:
                 row["edit_path"] = "/config/automation/edit/" + automation_id(tv, item["id"])
             rows.append(row)
         # Explicit projection: callback capabilities and TV originals never reach the UI.
-        return {key: status[key] for key in ("state", "error", "revision", "version", "source_lists", "source_order", "catalog", "slots", "inputs", "apps", "legacy_trusted", "legacy_sources") if key in status} | {"entries": rows, "can_restore": self.path(tv, True).exists()}
+        return {key: status[key] for key in ("state", "error", "revision", "version", "source_lists", "source_order", "source_cancel", "catalog", "slots", "inputs", "apps", "legacy_trusted", "legacy_sources") if key in status} | {"entries": rows, "can_restore": self.path(tv, True).exists()}
 
     async def media_players(self):
         players = []
@@ -224,6 +243,8 @@ class TVSources:
         old = next((e for e in store["entries"] if e["id"] == data.get("id")), None)
         entry = validate_entry(data, status, old)
         if entry["launch_entity"]:
+            if not status.get("source_cancel"):
+                raise ValueError("Update TV Support in Configuration before saving a connected-device app.")
             player = next((p for p in await self.media_players() if p["id"] == entry["launch_entity"]), None)
             if player is None or not any(s["id"] == entry["launch_source"] for s in player["sources"]):
                 raise ValueError("This device or app is unavailable. Refresh and choose it from Home Assistant's current list.")
@@ -237,10 +258,12 @@ class TVSources:
             if not any(item["id"] == entry["action_target"] for item in targets[GROUPS[entry["action_kind"]]]):
                 raise ValueError("This Home Assistant action is unavailable or needs inputs. Use the Home Assistant editor instead.")
         if old:
-            entry.update({key: old[key] for key in ("webhook", "action_hash") if key in old})
+            entry.update({key: old[key] for key in ("webhook", "action_hash", "launch_cancel") if key in old})
         key = automation_id(tv, entry["id"])
         before = await self.actions.ha.request("GET", "config/automation/config/" + key)
         same_action = old and all(entry.get(field, ENTRY_DEFAULTS.get(field, False)) == old.get(field, ENTRY_DEFAULTS.get(field, False)) for field in ("action_kind", "action_target", "launch_entity", "launch_source", "launch_wake"))
+        if same_action and entry["launch_entity"] and before is not None and digest(before) == old.get("action_hash"):
+            same_action = before == automation(tv, entry, entry.get("webhook", ""))
         if before is not None and (old is None or digest(before) != old.get("action_hash")) and not same_action:
             raise ValueError("This source's automation was edited in Home Assistant. Keep or edit that action there.")
         after = before
@@ -253,6 +276,7 @@ class TVSources:
                 entry["webhook"] = entry.get("webhook") or secrets.token_hex(32)
                 after = automation(tv, entry, entry["webhook"])
                 entry["action_hash"] = digest(after)
+                entry["launch_cancel"] = bool(entry["launch_entity"])
         elif old and old.get("webhook"):
             entry["webhook"] = old["webhook"]
         callback = f"http://{local}:8123/api/webhook/{entry['webhook']}" if entry.get("webhook") else ""

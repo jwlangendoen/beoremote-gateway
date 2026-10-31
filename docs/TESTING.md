@@ -241,3 +241,21 @@ or actions worked.
 - TV Support 0.1.2 builds with the retained signing identity and passes artifact/
   source checks. Actual household source-table writes and the remote list still
   need the integral check; no fixture action contacts the household TV or HA.
+# Connected-device wake and app launch (0.6.0-dev10)
+
+Run `tools/test_source_launch.py` inside official HA Core 2026.10.4 with
+`--network none` and the repository mounted read-only at `/repo`:
+
+```sh
+docker run --rm --network none -v "$PWD:/repo:ro" --entrypoint python \
+  ghcr.io/home-assistant/home-assistant:2026.10.4 /repo/tools/test_source_launch.py
+```
+
+This executes generated automations through the real HA validator and script
+engine. Virtual registered devices record wake and launch calls; no household
+devices, credentials or network connections are used. It checks already-awake,
+disconnected, slow-start, source-switch and standby cancellation, invalid
+cancellations, repeated selection, changing launch capability, app-service errors,
+missing app and unavailable-device timeouts, and a generic player without wake.
+The timeout cases shorten the deadline; the slow-start case really waits beyond
+the previous five-second expiry. Physical device behavior needs a separate test.

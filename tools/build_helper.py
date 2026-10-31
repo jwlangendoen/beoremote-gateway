@@ -58,7 +58,7 @@ def build():
     raw=(target/'support.apk').read_bytes()
     assets=ROOT/'beoremote_gateway/gateway'
     (assets/'helper_apk.b64').write_text(base64.b64encode(raw).decode()+'\n')
-    (assets/'helper_apk.json').write_text(json.dumps({'package':'nl.beoremote.tvhelper','version':'0.1.2','version_code':3,'sha256':hashlib.sha256(raw).hexdigest(),'certificate_sha256':hashlib.sha256(certificate).hexdigest(),'source_sha256':source_hash()},indent=2)+'\n')
-    print('Built and verified TV Support 0.1.2; no household data or endpoint in APK.')
+    (assets/'helper_apk.json').write_text(json.dumps({'package':'nl.beoremote.tvhelper','version':'0.1.3','version_code':4,'sha256':hashlib.sha256(raw).hexdigest(),'certificate_sha256':hashlib.sha256(certificate).hexdigest(),'source_sha256':source_hash()},indent=2)+'\n')
+    print('Built and verified TV Support 0.1.3; no household data or endpoint in APK.')
 
 if __name__=='__main__':build()

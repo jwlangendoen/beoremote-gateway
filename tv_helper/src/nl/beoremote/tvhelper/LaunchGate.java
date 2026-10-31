@@ -17,6 +17,18 @@ final class LaunchGate {
     boolean shortcutConfirmed;
     boolean targetConfirmed;
     ShortcutCatalog.Entry shortcut;
+    ShortcutCatalog.Entry deliveredShortcut;
+    long deliveredAt;
+
+    // Keep the HA wake request cancellable after the native HDMI handoff ended.
+    ShortcutCatalog.Entry takeCancellation(String name, boolean local, long received, boolean standby) {
+        if (deliveredShortcut == null || received <= deliveredAt) return null;
+        if (!standby && local && deliveredShortcut.source.equals(name)
+                && received <= deliveredAt + REPEAT_GRACE_MS) return null;
+        ShortcutCatalog.Entry previous = deliveredShortcut;
+        deliveredShortcut = null;
+        return received < deliveredAt + 25000 ? previous : null;
+    }
 
     boolean begin(String name, boolean local, long now) {
         ShortcutCatalog.Entry next = ShortcutCatalog.forSource(name);
@@ -90,6 +102,9 @@ final class LaunchGate {
     }
 
     void redirected() { phase = Phase.REDIRECTING; }
+    void dispatched(long now) {
+        if (requestWebhook && shortcut.cancelLaunch) { deliveredShortcut = shortcut; deliveredAt = now; }
+    }
     void delivered(long now) { phase = Phase.SENT; completedAt = now; }
     void cancel() { generation++; phase = Phase.IDLE; shortcut = null; }
 }

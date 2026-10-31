@@ -84,7 +84,26 @@ entity and exact source again; no media or lighting action is executed on Save.
 The helper receives only the native HDMI route and limited callback. After that
 route completes, the HA automation selects the chosen app/source before any
 additional scene or script. It wakes a sleeping device only if TURN_ON is
-advertised, waits at most three seconds and checks request freshness again.
+advertised. Apple TV resolves its associated remote by HA device registry,
+connects if needed and sends wakeup while asleep. Its remote's connected state
+alone is not proof that the player is awake. All connected-device launches wait
+within one twenty-second deadline for an awake player, SELECT_SOURCE support and
+the exact chosen source. The five-second guard applies when accepting the request,
+not again after a legitimate wake-up. Service failures stop the additional action;
+launches are not retried when their delivery is uncertain.
+
+TV Support 0.1.3 remembers dispatched connected-device callbacks for at most 25
+seconds. A subsequent source selection or standby sends a cancellation to that
+source's webhook. Native receipt times distinguish queued handoff events and held
+keys from a new choice, including a different app on the same HDMI input. The
+generated HA automation uses restart mode with the identity/freshness guard in
+top-level conditions, so stale or foreign requests cannot cancel valid work. A
+fresh cancellation stops before wake, app selection or extra actions. Cancellation
+is best effort if the native-to-HA network fails; the pending launch expires
+within its own deadline. HA restarts do not replay pending work.
+
+Update TV Support and re-save existing connected-device sources to upgrade
+unchanged generated automations. Edited HA actions and paused states are preserved.
 Integration availability, device wake-up and physical remote behavior still
 require an integral hardware test.
 

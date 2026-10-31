@@ -11,7 +11,7 @@ from jinja2 import Environment
 
 from gateway.sources import AdbInventory
 from gateway.actions import ActionManager
-from gateway.tv_sources import TVSources, automation, automation_id, validate_entry
+from gateway.tv_sources import TVSources, automation, automation_id, digest, private_write, validate_entry
 from test_actions import FakeHA
 from test_gateway import TV
 from test_sources import WebSourcesTests
@@ -45,7 +45,7 @@ class FakeADB:
             ids = self.config.get("order", {}).get(group, [])
             ordered += [next(row for row in rows if row["id"] == key) for key in ids if any(row["id"] == key for row in rows)]
             ordered += [row for row in rows if row["id"] not in ids]
-        return {"tv": TV, "state": "ready", "version": "0.1.2", "source_lists": ["tv", "music"], "source_order": True, "catalog": ordered, "owner": self.config.get("owner", ""),
+        return {"tv": TV, "state": "ready", "version": "0.1.3", "source_cancel": True, "source_lists": ["tv", "music"], "source_order": True, "catalog": ordered, "owner": self.config.get("owner", ""),
                 "revision": self.config["revision"], "operation": self.operation,
                 "entries": [{k: v for k, v in entry.items() if k != "callback"} for entry in self.config["entries"]],
                 "slots": [{"slot": n, "free": not any(e["slot"] == n for e in self.config["entries"])} for n in range(8)],
@@ -288,7 +288,9 @@ class EditorTests(unittest.IsolatedAsyncioTestCase):
         actions = config["actions"]
         self.assertEqual(actions[-2], {"action": "media_player.select_source", "target": {"entity_id": "media_player.apple_tv"}, "data": {"source": "Netflix"}})
         self.assertEqual(actions[-1]["action"], "scene.turn_on")
-        self.assertEqual(actions[0], actions[3])  # Recheck freshness after waiting for wake-up.
+        self.assertEqual(config["mode"], "restart")
+        self.assertEqual(config["conditions"], [actions[0]])  # Invalid webhooks cannot cancel a valid run.
+        self.assertTrue(self.adb.config["entries"][0]["cancel_launch"])
         self.assertFalse(any(path.startswith("services/media_player/") or path == "services/scene/turn_on" for _, path, _ in self.ha.calls))
         self.assertFalse(any(method == "test" for method, _ in self.adb.calls))
         self.assertNotIn("launch_entity", self.adb.config["entries"][0])
@@ -312,6 +314,38 @@ class EditorTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.ha.configs)
         self.assertFalse(self.adb.config["entries"])
 
+    async def test_connected_app_requires_helper_cancellation_support_before_writes(self):
+        original = self.adb.status
+        self.adb.status = lambda: {**original(), "source_cancel": False}
+        with self.assertRaisesRegex(ValueError, "Update TV Support"):
+            await self.save(kind="hdmi", target="HDMI2", launch_entity="media_player.apple_tv", launch_source="Netflix")
+        self.assertFalse(self.ha.configs)
+        self.assertFalse(self.adb.config["entries"])
+
+    async def test_resaving_unchanged_old_launch_upgrades_it_but_keeps_pause(self):
+        result = await self.save(kind="hdmi", target="HDMI2", launch_entity="media_player.apple_tv", launch_source="Netflix")
+        row = result["entries"][0]; key = automation_id(TV, row["id"])
+        old = copy.deepcopy(self.ha.configs[key]); old["mode"] = "single"
+        self.ha.configs[key] = old; self.ha.enabled[key] = False
+        store = self.editor.load(TV); store["entries"][0]["action_hash"] = digest(old)
+        store["entries"][0].pop("launch_cancel", None)
+        private_write(self.editor.path(TV), store)
+        await self.save(id=row["id"], kind="hdmi", target="HDMI2", launch_entity="media_player.apple_tv", launch_source="Netflix")
+        self.assertEqual(self.ha.configs[key]["mode"], "restart")
+        self.assertFalse(self.ha.enabled[key])
+        self.assertTrue(self.adb.config["entries"][0]["cancel_launch"])
+
+    async def test_resaving_customized_old_launch_does_not_rewrite_or_enable_cancellation(self):
+        result = await self.save(kind="hdmi", target="HDMI2", launch_entity="media_player.apple_tv", launch_source="Netflix")
+        row = result["entries"][0]; key = automation_id(TV, row["id"])
+        store = self.editor.load(TV); store["entries"][0].pop("launch_cancel", None)
+        private_write(self.editor.path(TV), store)
+        self.ha.configs[key]["description"] = "My custom action"
+        before = copy.deepcopy(self.ha.configs[key])
+        await self.save(id=row["id"], kind="hdmi", target="HDMI2", launch_entity="media_player.apple_tv", launch_source="Netflix")
+        self.assertEqual(self.ha.configs[key], before)
+        self.assertFalse(self.adb.config["entries"][0]["cancel_launch"])
+
     async def test_media_choices_filter_capabilities_and_unavailable_and_keep_generic_devices(self):
         original_states = self.ha.states
         extras = [
@@ -326,7 +360,7 @@ class EditorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(players[1]["sources"], [{"id": "Game", "name": "Game"}])
         result = await self.save(kind="hdmi", target="HDMI1", launch_entity="media_player.console", launch_source="Game")
         actions = self.ha.configs[automation_id(TV, result["entries"][0]["id"])]["actions"]
-        self.assertEqual(len(actions), 2)  # Do not send an unsupported wake action.
+        self.assertNotIn('media_player.turn_on', json.dumps(actions))  # No unsupported wake action.
 
     async def test_script_uses_limited_webhook_without_exposing_it_to_browser(self):
         result = await self.save(kind="hdmi", target="HDMI2", action_kind="script", action_target="script.movie")

@@ -1,3 +1,13 @@
+# 0.6.0-dev10
+
+- Connect and wake Apple TV through its registered remote before opening an app.
+- Allow up to twenty seconds for the player, launch capability and selected app
+  to become ready. Extra scenes and scripts run only after the launch succeeds.
+- Update TV Support to 0.1.3 to cancel a pending app launch when another source
+  is chosen or the TV enters standby. Repeated requests replace pending work.
+- Preserve custom HA edits and paused automations. Re-save an existing connected
+  app source after updating TV Support to upgrade its unchanged launch automation.
+
 # 0.6.0-dev9
 
 - Show the helper's actionable reason when a source-order change is refused,

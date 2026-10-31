@@ -1,4 +1,4 @@
-# Beoremote Gateway 0.6.0-dev9
+# Beoremote Gateway 0.6.0-dev10
 
 The idea is to use Home Assistant a bit like BeoLiving Intelligence: your
 Beoremote One's LIGHT buttons run actions for your home. You need
@@ -61,6 +61,16 @@ connected device. For the latter, select the HDMI input, the device in Home Assi
 (such as Apple TV) and one of its reported apps or sources. The device must already
 be integrated in Home Assistant. TV Support 0.1.1 or later is needed for MUSIC. Optionally select a scene, lights-off, a script, or **Choose in Home Assistant**
 for any action or condition in its normal automation editor.
+
+Connected-device apps need TV Support 0.1.3 for cancellation during wake-up.
+Update it in Configuration, then re-save an existing app shortcut to update its
+unchanged launch automation. Custom Home Assistant edits and paused actions are kept.
+On selection, the gateway connects and wakes Apple TV through its registered
+remote and waits up to twenty seconds for the chosen app to become available.
+Other players are woken only when supported. If the device or app stays unavailable,
+the extra scene or script does not run. Choosing another source or putting the TV
+in standby asks Home Assistant to cancel the pending launch. Cancellation uses
+the same local connection and cannot be confirmed if that connection is lost.
 
 **Sources** lists existing local TV sources as well as shortcuts added here,
 grouped under **TV** and **MUSIC**. Use **Move up** or **Move down** to change
