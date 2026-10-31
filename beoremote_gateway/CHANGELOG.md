@@ -6,6 +6,7 @@
 - Reduce movement controls in the normal list and improve keyboard focus and status messages.
 - Clarify the Beoremote One BT and Android-based Beovision connection, tested Horizon setup and Horizon-only source support.
 - Place LIGHT troubleshooting and action help in Light, source help in Sources and connection settings in Configuration.
+- Add regression checks for source ownership, callbacks, paused actions and undo recovery after gateway restart or app-data restoration.
 
 # 0.6.0-dev11
 

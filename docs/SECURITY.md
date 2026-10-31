@@ -153,9 +153,35 @@ requests have bounded timeouts and no redirects, proxy inheritance or retries.
 Private configuration, backups and signing keys are excluded from the public
 source boundary. The signed generic APK contains no deployment configuration.
 
-The full device-side behavior still requires hardware testing. Earlier OS scan
-counts describe 0.5.1, not the Debian ADB packages added in development; this
-candidate has not received a new full container vulnerability assessment.
+### Container recheck, 31 October 2026
+
+Trivy 0.76.1 scanned a freshly built aarch64 0.6.0-dev12 image, including the
+Debian ADB packages, using a newly downloaded vulnerability database. The image
+was built from the curated source export and the current official base image.
+The scanner read an image archive without access to the Docker socket, TV or HA.
+
+| Result | Count |
+| --- | --- |
+| Critical OS findings | 0 |
+| High OS package/CVE entries | 44, representing the same eight CVEs assessed above |
+| Medium / low / unknown OS entries | 62 / 62 / 1 |
+| Python package vulnerability findings | 0 |
+
+The scanner offers no fixed stable-package version for the high findings. They
+remain recorded findings; this is not a vulnerability-free image. Compared with
+the earlier 0.5.1 scan, additional reports cover glibc's LANGUAGE environment
+handling, two libusb descriptor issues and a low-severity protobuf issue. The
+gateway does not accept environment changes from the UI or TV and has no USB
+device passthrough. These are call-path/exposure assessments, not proof that
+the dependencies cannot be exploited. Debian marks the two libusb issues
+[CVE-2026-23679](https://security-tracker.debian.org/tracker/CVE-2026-23679) and
+[CVE-2026-47104](https://security-tracker.debian.org/tracker/CVE-2026-47104) as
+minor stable-release issues, and
+[CVE-2015-5237](https://security-tracker.debian.org/tracker/CVE-2015-5237) as
+unimportant. Recheck the base and scanner data before publishing a later build.
+
+The final integrated physical remote and recovery checks still remain release
+gates. Local container results do not establish full device-side behavior.
 
 Relevant upstream code:
 [Core ingress session identity](https://github.com/home-assistant/core/blob/2026.10.4/homeassistant/components/hassio/websocket_api.py),

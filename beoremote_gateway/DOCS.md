@@ -105,8 +105,10 @@ HA actions use limited local webhooks; the TV receives no general HA token.
 Use a stable local address for the HA host. Saving sources refreshes the callback
 address for the edited source.
 
-This candidate has not yet passed the physical installation and remote tests.
-Keep it on the development branch until those checks are recorded.
+The final candidate still needs an integrated installation and physical remote
+test, including recovery after device and network restarts. Earlier hardware
+checks do not establish that complete flow. Keep it on the development branch
+until the remaining checks in the testing notes are recorded.
 
 ## No button received?
 

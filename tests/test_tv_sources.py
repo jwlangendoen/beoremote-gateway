@@ -3,6 +3,7 @@ import base64
 import copy
 import json
 from pathlib import Path
+import shutil
 import tempfile
 import unittest
 from unittest.mock import AsyncMock
@@ -172,6 +173,58 @@ class EditorTests(unittest.IsolatedAsyncioTestCase):
 
     async def save(self, **changes):
         return await self.editor.save(self.adb, "192.0.2.10", "192.0.2.20", TV, self.adb.config["revision"], source(**changes))
+
+    async def test_restart_keeps_owner_callback_and_paused_action_without_writes(self):
+        result = await self.save(action_kind="script", action_target="script.movie")
+        row = result["entries"][0]
+        key = automation_id(TV, row["id"])
+        self.ha.enabled[key] = False
+        owner, saved = self.editor.owner, self.editor.load(TV)
+        ha_before, native_before = copy.deepcopy(self.ha.configs), copy.deepcopy(self.adb.config)
+        self.ha.calls.clear()
+        self.adb.calls.clear()
+
+        self.editor = TVSources(self.temp.name, ActionManager(self.ha))
+        status = await self.editor.status(self.adb, "192.0.2.10", TV)
+        self.assertEqual(self.editor.owner, owner)
+        self.assertEqual(self.editor.load(TV), saved)
+        self.assertEqual(status["entries"], result["entries"])
+        self.assertEqual(self.adb.config, native_before)
+        self.assertEqual(self.ha.configs, ha_before)
+        self.assertFalse(self.ha.enabled[key])
+        self.assertEqual([method for method, _ in self.adb.calls], ["status"])
+        self.assertFalse(self.ha.calls)
+
+        # The restarted gateway can continue editing its own source, rather than
+        # allocating another identity/capability or enabling a paused automation.
+        await self.save(id=row["id"], name="Renamed", action_kind="script", action_target="script.movie")
+        edited = self.editor.load(TV)["entries"][0]
+        self.assertEqual(edited["webhook"], saved["entries"][0]["webhook"])
+        self.assertEqual(self.adb.config["owner"], owner)
+        self.assertEqual(self.ha.configs, ha_before)
+        self.assertFalse(self.ha.enabled[key])
+
+    async def test_restored_gateway_data_keeps_ownership_and_previous_setup_recovery(self):
+        result = await self.save(action_kind="script", action_target="script.movie")
+        row = result["entries"][0]
+        key = automation_id(TV, row["id"])
+        self.ha.enabled[key] = False
+        original = copy.deepcopy(self.ha.configs)
+        await self.save(id=row["id"], name="Changed", action_kind="scene", action_target="scene.movie")
+        owner, saved = self.editor.owner, self.editor.load(TV)
+        with tempfile.TemporaryDirectory() as restored:
+            # Copy the gateway data, as an app-data backup would. The external
+            # TV and HA fixtures retain their matching state; they are not reset.
+            shutil.copytree(Path(self.temp.name) / "tv-sources", Path(restored) / "tv-sources")
+            editor = TVSources(restored, ActionManager(self.ha))
+            self.assertEqual(editor.owner, owner)
+            self.assertEqual(editor.load(TV), saved)
+            recovered = await editor.restore(self.adb, "192.0.2.10", TV, self.adb.config["revision"])
+            self.assertEqual(recovered["entries"][0]["id"], row["id"])
+            self.assertEqual(recovered["entries"][0]["name"], "Player")
+            self.assertEqual(self.ha.configs, original)
+            self.assertFalse(self.ha.enabled[key])
+            self.assertFalse(any(method == "test" for method, _ in self.adb.calls))
 
     async def test_saving_local_app_registers_without_playback_or_ha_action(self):
         status = await self.save()
