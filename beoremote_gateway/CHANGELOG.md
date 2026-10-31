@@ -1,3 +1,11 @@
+# 0.6.0-dev13 — native wake candidate
+
+- Wait for native TV power-on before starting the source handoff; allow up to 45 seconds for wake, then eight seconds for handoff.
+- Keep source changes and standby cancellation active while waiting.
+- Update TV Support to 0.1.4; offer its update from Configuration.
+- Add bounded source-start diagnostics under Sources, without callback URLs or TV identity. Refresh sources to read events retained since the helper process started.
+- Physical standby regression verification is still required before release.
+
 # 0.6.0-dev12
 
 - Connect directly from Sources after the TV and source support have been configured.

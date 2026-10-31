@@ -19,6 +19,7 @@ public final class ControlProvider extends ContentProvider {
         synchronized(LOCK){boolean reserved=false;try{
             if("status".equals(method)){
                 result=read(getContext(),"status","{\"state\":\"starting\"}");
+                result.put("launch_diagnostics",new JSONObject(SupportService.launchDiagnostics));
                 JSONObject cfg=read(getContext(),"config","{\"entries\":[]}");JSONArray rows=new JSONArray();JSONArray entries=cfg.getJSONArray("entries");
                 for(int i=0;i<entries.length();i++){JSONObject copy=new JSONObject(entries.getJSONObject(i).toString());copy.remove("callback");rows.put(copy);}
                 result.put("entries",rows);result.put("revision",cfg.optString("revision",""));result.put("owner",cfg.optString("owner",""));

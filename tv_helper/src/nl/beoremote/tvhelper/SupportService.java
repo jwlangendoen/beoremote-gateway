@@ -13,6 +13,10 @@ import java.util.*;
 /** Idle native observer. Registration never selects a source or launches an app. */
 public final class SupportService extends Service {
     static final String TAG="BeoremoteSupport";
+    // Process-local, bounded and free of callbacks, product IDs and app labels.
+    // A status read can inspect a failure long after the logcat buffer rolled over.
+    static volatile String launchDiagnostics="{\"events\":[]}";
+    final ArrayDeque<JSONObject> launchEvents=new ArrayDeque<>();
     static final Uri SOURCES=Uri.parse("content://com.bang_olufsen.sourcecontrol.provider.SourceControlProvider/source");
     static final Uri PRODUCTS=Uri.parse("content://com.bang_olufsen.sourcecontrol.provider.SourceControlProvider/product");
     static final Uri SETTINGS=Uri.parse("content://com.bang_olufsen.settings.provider.BeoProvider/beosettings");
@@ -88,13 +92,13 @@ public final class SupportService extends Service {
             }catch(Exception|LinkageError e){failed("active source position".equals(e.getMessage())?"Switch to another source, then refresh sources before moving the source that is playing.":"The TV change was not confirmed. Check the TV and refresh before trying again.");}}
             return;
         }
-        if("beo.intent.action.POWER_STATE_CHANGE".equals(action)){int s=intent.getIntExtra("STATE",-1);if(s==4||s==5||s==6){cancelLaunch("",false,intent.getLongExtra(SourceReceiver.RECEIVED_AT,SystemClock.elapsedRealtime()),true);gate.cancel();}return;}
+        if("beo.intent.action.POWER_STATE_CHANGE".equals(action)){int s=intent.getIntExtra("STATE",-1);if(s==4||s==5||s==6){cancelLaunch("",false,intent.getLongExtra(SourceReceiver.RECEIVED_AT,SystemClock.elapsedRealtime()),true);gate.cancel();}launchTrace("power_event", "", s);return;}
         try{Object source=intent.getParcelableExtra("source_name_product_id");if(source==null||productId==null)return;String name=(String)source.getClass().getMethod("getName").invoke(source),owner=(String)source.getClass().getMethod("getProductId").invoke(source);boolean local=productId.equals(owner);
-            if("beo.intent.action.source_changed".equals(action)){gate.completed(name,local);return;}
+            if("beo.intent.action.source_changed".equals(action)){gate.completed(name,local);launchTrace("source_changed",local?name:"other_product",powerState());return;}
             if("beo.intent.action.source_change_begin".equals(action)){
                 if(intent.getLongExtra(SourceReceiver.RECEIVED_AT,0)<configuredAt)return;
                 cancelLaunch(name,local,intent.getLongExtra(SourceReceiver.RECEIVED_AT,SystemClock.elapsedRealtime()),false);
-                if(gate.begin(name,local,intent.getLongExtra(SourceReceiver.RECEIVED_AT,SystemClock.elapsedRealtime()))){long generation=gate.generation;worker.post(()->advance(generation));}else gate.selected(name,local);
+                if(gate.begin(name,local,intent.getLongExtra(SourceReceiver.RECEIVED_AT,SystemClock.elapsedRealtime()))){launchTrace("source_requested",name,powerState());long generation=gate.generation;worker.post(()->advance(generation));}else{gate.selected(name,local);launchTrace("source_selected",local?name:"other_product",powerState());}
             }
         }catch(Exception|LinkageError e){gate.cancel();}
     }
@@ -103,23 +107,36 @@ public final class SupportService extends Service {
         if(previous!=null)try{WebhookClient.send(previous.callback,previous.source,productId,true);}catch(Exception error){Log.w(TAG,"Source cancellation was not confirmed; not retried.");}
     }
     void advance(long generation){
-        if(closed||!gate.valid(generation,SystemClock.elapsedRealtime()))return;
+        if(closed)return;
+        boolean expired=generation==gate.generation&&gate.phase!=LaunchGate.Phase.IDLE&&gate.phase!=LaunchGate.Phase.SENT&&SystemClock.elapsedRealtime()>=gate.deadline;
+        if(!gate.valid(generation,SystemClock.elapsedRealtime())){if(expired)launchTrace("expired","",powerState());return;}
         try{
-            String current=activeSource();LaunchGate.Next next=gate.next(generation,SystemClock.elapsedRealtime(),current,gate.target.equals(current)&&televisionOn()&&targetPlaying());
+            String current=activeSource();boolean on=televisionOn();LaunchGate.Next next=gate.next(generation,SystemClock.elapsedRealtime(),current,on,on&&gate.target.equals(current)&&targetPlaying());
             if(next==LaunchGate.Next.NONE)return;
+            if(next!=LaunchGate.Next.WAIT)launchTrace(next.name().toLowerCase(Locale.ROOT),current,powerState());
             if(next==LaunchGate.Next.COMMIT_SHORTCUT||next==LaunchGate.Next.RESTORE_TARGET)completeSource(next==LaunchGate.Next.COMMIT_SHORTCUT?gate.shortcut.source:gate.target);
             else if(next==LaunchGate.Next.START_TARGET)startSource(gate.target);
             else if(next==LaunchGate.Next.SEND_REQUEST||next==LaunchGate.Next.COMPLETE_DUPLICATE){
                 if(next==LaunchGate.Next.SEND_REQUEST){ShortcutCatalog.Entry e=gate.shortcut;
                     if("app".equals(e.kind)){Intent launch=launchIntent(e.target);if(launch==null)throw new Exception("app removed");launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);startActivity(launch);}
                     gate.dispatched(SystemClock.elapsedRealtime());WebhookClient.send(e.callback,e.source,productId);
-                }gate.delivered(SystemClock.elapsedRealtime());return;
+                }gate.delivered(SystemClock.elapsedRealtime());launchTrace("delivered",current,powerState());return;
             }
             worker.postDelayed(()->advance(generation),gate.delay(SystemClock.elapsedRealtime()));
-        }catch(Exception|LinkageError e){gate.cancel();Log.w(TAG,"Source action failed; not retried.");}
+        }catch(Exception|LinkageError e){gate.cancel();launchTrace("failed","",powerState());Log.w(TAG,"Source action failed; not retried.");}
+    }
+    void launchTrace(String event,String source,int power){
+        try{
+            String safe=source.startsWith("BGW_")?"gateway_shortcut":source.matches("[A-Z][A-Z0-9_]{0,39}")?source:source.isEmpty()?"":"other";
+            JSONObject row=new JSONObject().put("at_ms",System.currentTimeMillis()).put("elapsed_ms",SystemClock.elapsedRealtime()).put("event",event).put("phase",gate.phase.name()).put("generation",gate.generation).put("power_state",power).put("source",safe);
+            if(launchEvents.size()==64)launchEvents.removeFirst();launchEvents.addLast(row);
+            JSONArray rows=new JSONArray();for(JSONObject item:launchEvents)rows.put(item);
+            launchDiagnostics=new JSONObject().put("events",rows).toString();
+        }catch(JSONException ignored){}
     }
     Intent launchIntent(String pkg){Intent i=getPackageManager().getLeanbackLaunchIntentForPackage(pkg);return i!=null?i:getPackageManager().getLaunchIntentForPackage(pkg);}
-    boolean televisionOn(){try{return powerService!=null&&((Integer)powerApi.getMethod("getCurrentPowerState").invoke(powerService))==3;}catch(Exception e){return false;}}
+    int powerState(){try{return powerService!=null?(Integer)powerApi.getMethod("getCurrentPowerState").invoke(powerService):-1;}catch(Exception e){return -1;}}
+    boolean televisionOn(){return powerState()==3;}
     @SuppressWarnings({"rawtypes","unchecked"}) int ordinal(String name)throws Exception{return Enum.valueOf((Class<? extends Enum>)Class.forName("com.bang_olufsen.sourcecontrol.ISourceControl$SourceTypes"),name).ordinal();}
     boolean targetPlaying(){try{String name="app".equals(gate.shortcut.kind)?ShortcutCatalog.TYPES[gate.shortcut.slot]:gate.target;return ((Integer)nativeApi.getMethod("getCurrentSource").invoke(nativeService))==ordinal(name);}catch(Exception e){return false;}}
     void startSource(String name)throws Exception{Class<?> t=Class.forName("com.bang_olufsen.networklink.model.UniqueSourceId");nativeApi.getMethod("startSource",t,int.class).invoke(nativeService,t.getConstructor(String.class,String.class).newInstance(name,productId),0);}
@@ -175,7 +192,7 @@ public final class SupportService extends Service {
         ControlProvider.write(this,"originals",originals);if(changed||recovered)publish();
     }
     void capabilities()throws Exception{synchronized(ControlProvider.LOCK){
-        JSONObject state=ControlProvider.read(this,"status","{}");if(!"working".equals(state.optString("state"))&&!"attention".equals(state.optString("state")))state.put("state","ready");state.put("tv",productId);state.put("version","0.1.3");state.put("source_lists",new JSONArray().put("tv").put("music"));state.put("source_order",true).put("catalog",new SourceOrder(this,SOURCES,productRow).catalog());
+        JSONObject state=ControlProvider.read(this,"status","{}");if(!"working".equals(state.optString("state"))&&!"attention".equals(state.optString("state")))state.put("state","ready");state.put("tv",productId);state.put("version","0.1.4");state.put("source_lists",new JSONArray().put("tv").put("music"));state.put("source_wake_wait",true);state.put("source_order",true).put("catalog",new SourceOrder(this,SOURCES,productRow).catalog());
         JSONArray slots=new JSONArray(),inputs=new JSONArray(),apps=new JSONArray();
         boolean legacyTrusted=false;try{PackageInfo info=getPackageManager().getPackageInfo("nl.johan.horizonappletv",PackageManager.GET_SIGNATURES);byte[] hash=java.security.MessageDigest.getInstance("SHA-256").digest(info.signatures[0].toByteArray());StringBuilder hex=new StringBuilder();for(byte b:hash)hex.append(String.format(java.util.Locale.ROOT,"%02x",b&255));legacyTrusted=info.versionCode>=108&&"6ce62474011f288bed0a822e0c8587a83c05d3dec19226a19e6002e619979921".equals(hex.toString());}catch(Exception ignored){}
         int legacySources=0;Set<String> legacyNames=new HashSet<>(Arrays.asList("ATV_NETFLIX","ATV_YOUTUBE","ATV_PLUS","ATV_PRIME","ATV_SVT","ATV_HBO","ATV_F1_TV","ATV_NLZIET"));

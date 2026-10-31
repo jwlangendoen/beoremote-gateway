@@ -46,7 +46,7 @@ class FakeADB:
             ids = self.config.get("order", {}).get(group, [])
             ordered += [next(row for row in rows if row["id"] == key) for key in ids if any(row["id"] == key for row in rows)]
             ordered += [row for row in rows if row["id"] not in ids]
-        return {"tv": TV, "state": "ready", "version": "0.1.3", "source_cancel": True, "source_lists": ["tv", "music"], "source_order": True, "catalog": ordered, "owner": self.config.get("owner", ""),
+        return {"tv": TV, "state": "ready", "version": "0.1.4", "source_cancel": True, "source_wake_wait": True, "source_lists": ["tv", "music"], "source_order": True, "catalog": ordered, "owner": self.config.get("owner", ""),
                 "revision": self.config["revision"], "operation": self.operation,
                 "entries": [{k: v for k, v in entry.items() if k != "callback"} for entry in self.config["entries"]],
                 "slots": [{"slot": n, "free": not any(e["slot"] == n for e in self.config["entries"])} for n in range(8)],
@@ -173,6 +173,23 @@ class EditorTests(unittest.IsolatedAsyncioTestCase):
 
     async def save(self, **changes):
         return await self.editor.save(self.adb, "192.0.2.10", "192.0.2.20", TV, self.adb.config["revision"], source(**changes))
+
+    async def test_launch_diagnostics_are_bounded_and_do_not_forward_capabilities(self):
+        original = self.adb.status
+        safe = {"at_ms": 1234, "elapsed_ms": 100, "generation": 1,
+                "power_state": 0, "event": "source_requested", "phase": "WAITING", "source": "SPOTIFY"}
+        unsafe = {**safe, "callback": "http://192.0.2.20:8123/api/webhook/private",
+                  "source": "http://192.0.2.20:8123/api/webhook/private", "exception": "secret"}
+        self.adb.status = lambda: {**original(), "launch_diagnostics": {
+            "callback": "private", "events": [safe] * 70 + [unsafe]}}
+        status = await self.editor.status(self.adb, "192.0.2.10", TV)
+        events = status["launch_diagnostics"]["events"]
+        self.assertEqual(len(events), 64)
+        self.assertEqual(events[0], safe)
+        self.assertNotIn("source", events[-1])
+        self.assertNotIn("private", json.dumps(status))
+        self.assertNotIn("secret", json.dumps(status))
+        self.assertEqual([method for method, _ in self.adb.calls], ["status"])
 
     async def test_restart_keeps_owner_callback_and_paused_action_without_writes(self):
         result = await self.save(action_kind="script", action_target="script.movie")

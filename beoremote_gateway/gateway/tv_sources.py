@@ -16,6 +16,23 @@ EMPTY = {"entries": []}
 ENTRY_DEFAULTS = {"source_list": "tv", "launch_entity": "", "launch_source": ""}
 
 
+def launch_diagnostics(value):
+    """Project bounded native lifecycle data; never forward arbitrary helper data."""
+    events = value.get("events", []) if isinstance(value, dict) else []
+    public = []
+    for event in events[-64:] if isinstance(events, list) else []:
+        if not isinstance(event, dict):
+            continue
+        row = {key: event[key] for key in ("at_ms", "elapsed_ms", "generation", "power_state")
+               if type(event.get(key)) is int and -1 <= event[key] < 2**63}
+        for key in ("event", "phase", "source"):
+            text = event.get(key)
+            if isinstance(text, str) and re.fullmatch(r"[A-Za-z_][A-Za-z_0-9]{0,39}|", text):
+                row[key] = text
+        public.append(row)
+    return {"events": public}
+
+
 def helper_entries(entries):
     return [{**{key: entry[key] for key in ("id", "name", "kind", "target", "slot", "callback")},
              "source_list": entry.get("source_list", "tv"), "cancel_launch": entry.get("launch_cancel", False)} for entry in entries]
@@ -174,7 +191,10 @@ class TVSources:
                 row["edit_path"] = "/config/automation/edit/" + automation_id(tv, item["id"])
             rows.append(row)
         # Explicit projection: callback capabilities and TV originals never reach the UI.
-        return {key: status[key] for key in ("state", "error", "revision", "version", "source_lists", "source_order", "source_cancel", "catalog", "slots", "inputs", "apps", "legacy_trusted", "legacy_sources") if key in status} | {"entries": rows, "can_restore": self.path(tv, True).exists()}
+        result = {key: status[key] for key in ("state", "error", "revision", "version", "source_lists", "source_order", "source_cancel", "source_wake_wait", "catalog", "slots", "inputs", "apps", "legacy_trusted", "legacy_sources") if key in status} | {"entries": rows, "can_restore": self.path(tv, True).exists()}
+        if "launch_diagnostics" in status:
+            result["launch_diagnostics"] = launch_diagnostics(status["launch_diagnostics"])
+        return result
 
     async def media_players(self):
         players = []

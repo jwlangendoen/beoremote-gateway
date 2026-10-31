@@ -5,6 +5,8 @@ final class LaunchGate {
     String target = "";
     static final long REPEAT_GRACE_MS = 1200;
     static final long HANDOFF_DELAY_MS = 500;
+    static final long WAKE_TIMEOUT_MS = 45000;
+    static final long HANDOFF_TIMEOUT_MS = 8000;
     enum Phase { IDLE, WAITING, COMMITTING_SHORTCUT, RESTORING_TARGET, REDIRECTING, SENT }
     enum Next { NONE, WAIT, COMMIT_SHORTCUT, RESTORE_TARGET, START_TARGET, SEND_REQUEST, COMPLETE_DUPLICATE }
     Phase phase = Phase.IDLE;
@@ -38,7 +40,7 @@ final class LaunchGate {
         // finishes. Its arrival time, rather than processing time, identifies a duplicate.
         requestWebhook = !(phase == Phase.SENT && next == shortcut && now <= completedAt + REPEAT_GRACE_MS);
         generation++;
-        deadline = now + 8000;
+        deadline = now + WAKE_TIMEOUT_MS;
         handoffAt = now + HANDOFF_DELAY_MS;
         phase = Phase.WAITING;
         direct = false;
@@ -49,12 +51,17 @@ final class LaunchGate {
         return true;
     }
 
-    Next next(long id, long now, String current, boolean televisionOn) {
+    Next next(long id, long now, String current, boolean televisionOn, boolean targetPlaying) {
         if (!valid(id, now)) return Next.NONE;
         if (phase == Phase.WAITING) {
+            // During a native wake the firmware restores its remembered source.
+            // Starting HDMI before POWER_ON competes with that restoration.
+            // Keep wake time separate from the subsequent source handoff budget.
+            if (!televisionOn) return Next.WAIT;
+            deadline = now + HANDOFF_TIMEOUT_MS;
             // A remembered HDMI source while asleep is not an active television.
             // Re-read the source at dispatch time; never use a previous request's state.
-            if (target.equals(current) && televisionOn) {
+            if (target.equals(current) && targetPlaying) {
                 direct = true;
                 phase = Phase.COMMITTING_SHORTCUT;
                 return Next.COMMIT_SHORTCUT;
@@ -68,13 +75,13 @@ final class LaunchGate {
             return Next.RESTORE_TARGET;
         }
         if ((phase == Phase.RESTORING_TARGET || phase == Phase.REDIRECTING)
-                && (phase == Phase.REDIRECTING || targetConfirmed) && target.equals(current) && televisionOn)
+                && (phase == Phase.REDIRECTING || targetConfirmed) && target.equals(current) && televisionOn && targetPlaying)
             return requestWebhook ? Next.SEND_REQUEST : Next.COMPLETE_DUPLICATE;
         return Next.WAIT;
     }
 
     long delay(long now) {
-        return phase == Phase.WAITING ? Math.max(1, handoffAt - now)
+        return phase == Phase.WAITING ? (now < handoffAt ? handoffAt - now : 150)
                 : direct ? 50 : 150;
     }
 
