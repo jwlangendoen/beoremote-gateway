@@ -36,7 +36,16 @@ class FakeADB:
         self.failure = None
 
     def status(self):
-        return {"tv": TV, "state": "ready", "version": "0.1.1", "source_lists": ["tv", "music"], "owner": self.config.get("owner", ""),
+        catalog = [{"id": "HDMI1", "name": "Console", "source_list": "tv"}, {"id": "HDMI2", "name": "Media player", "source_list": "tv"},
+                   {"id": "NATIVE_MUSIC", "name": "Music", "source_list": "music"}, {"id": "NATIVE_RADIO", "name": "Radio", "source_list": "music"}]
+        catalog += [{key: e.get(key, "tv") for key in ("id", "name", "source_list")} for e in self.config["entries"]]
+        ordered = []
+        for group in ("tv", "music"):
+            rows = [row for row in catalog if row["source_list"] == group]
+            ids = self.config.get("order", {}).get(group, [])
+            ordered += [next(row for row in rows if row["id"] == key) for key in ids if any(row["id"] == key for row in rows)]
+            ordered += [row for row in rows if row["id"] not in ids]
+        return {"tv": TV, "state": "ready", "version": "0.1.2", "source_lists": ["tv", "music"], "source_order": True, "catalog": ordered, "owner": self.config.get("owner", ""),
                 "revision": self.config["revision"], "operation": self.operation,
                 "entries": [{k: v for k, v in entry.items() if k != "callback"} for entry in self.config["entries"]],
                 "slots": [{"slot": n, "free": not any(e["slot"] == n for e in self.config["entries"])} for n in range(8)],
@@ -183,6 +192,69 @@ class EditorTests(unittest.IsolatedAsyncioTestCase):
         restored = await self.editor.restore(self.adb, "192.0.2.10", TV, result["revision"])
         self.assertEqual(restored["entries"][0]["source_list"], "music")
         self.assertFalse(self.ha.configs)
+
+    async def test_reordering_existing_sources_is_separate_per_list_and_has_no_actions(self):
+        result = await self.editor.reorder(self.adb, "192.0.2.10", TV, "", "tv", ["HDMI2", "HDMI1"])
+        self.assertEqual([r["id"] for r in result["catalog"] if r["source_list"] == "tv"], ["HDMI2", "HDMI1"])
+        self.assertEqual([r["id"] for r in result["catalog"] if r["source_list"] == "music"], ["NATIVE_MUSIC", "NATIVE_RADIO"])
+        self.assertEqual(self.adb.config["entries"], [])
+        self.assertFalse(self.ha.calls)
+        self.assertFalse(any(method == "test" for method, _ in self.adb.calls))
+        apply = next(data for method, data in self.adb.calls if method == "apply")
+        self.assertEqual(apply["order_check"], {"source_list": "tv", "ids": ["HDMI2", "HDMI1"]})
+        restored = await self.editor.restore(self.adb, "192.0.2.10", TV, result["revision"])
+        self.assertEqual([r["id"] for r in restored["catalog"] if r["source_list"] == "tv"], ["HDMI1", "HDMI2"])
+        self.assertFalse(self.ha.calls)
+
+    async def test_ordering_keeps_shortcut_routes_custom_actions_and_paused_state(self):
+        result = await self.save(action_kind="script", action_target="script.movie")
+        row = result["entries"][0];key = automation_id(TV, row["id"])
+        self.ha.configs[key]["description"] = "Custom user work"
+        self.ha.enabled[key] = False
+        before = copy.deepcopy(self.ha.configs), copy.deepcopy(self.editor.load(TV)), copy.deepcopy(self.adb.config["entries"])
+        self.ha.calls.clear()
+        ordered = await self.editor.reorder(self.adb, "192.0.2.10", TV, result["revision"], "tv", [row["id"], "HDMI1", "HDMI2"])
+        self.assertEqual((self.ha.configs, self.editor.load(TV), self.adb.config["entries"]), before)
+        await self.editor.restore(self.adb, "192.0.2.10", TV, ordered["revision"])
+        self.assertFalse(self.ha.calls)
+        self.assertFalse(self.ha.enabled[key])
+
+    async def test_bad_or_stale_order_cannot_change_sources(self):
+        for group, ids in (("tv", ["HDMI1"]), ("tv", ["HDMI1", "HDMI1"]), ("tv", ["HDMI1", "FOREIGN"]),
+                           ("tv", ["NATIVE_MUSIC", "NATIVE_RADIO"]), ("both", []), ("tv", [None]), ([], [])):
+            with self.assertRaises(ValueError):
+                await self.editor.reorder(self.adb, "192.0.2.10", TV, "", group, ids)
+        with self.assertRaisesRegex(ValueError, "changed"):
+            await self.editor.reorder(self.adb, "192.0.2.10", TV, "a" * 32, "tv", ["HDMI2", "HDMI1"])
+        self.assertFalse(any(method == "apply" for method, _ in self.adb.calls))
+        self.assertFalse(self.editor.path(TV, True).exists())
+
+    async def test_ordering_requires_capable_helper_and_noop_is_not_written(self):
+        await self.editor.reorder(self.adb, "192.0.2.10", TV, "", "tv", ["HDMI1", "HDMI2"])
+        self.assertFalse(self.editor.path(TV, True).exists())
+        self.assertFalse(any(method == "apply" for method, _ in self.adb.calls))
+        original_status = self.adb.status
+        self.adb.status = lambda: {**original_status(), "source_order": False}
+        with self.assertRaisesRegex(ValueError, "Update TV Support"):
+            await self.editor.reorder(self.adb, "192.0.2.10", TV, "", "tv", ["HDMI2", "HDMI1"])
+
+    async def test_uncertain_order_reply_is_reconciled_or_can_be_restored(self):
+        self.adb.failure = "after"
+        result = await self.editor.reorder(self.adb, "192.0.2.10", TV, "", "tv", ["HDMI2", "HDMI1"])
+        self.assertEqual(self.adb.config["order"]["tv"], ["HDMI2", "HDMI1"])
+        await self.editor.restore(self.adb, "192.0.2.10", TV, result["revision"])
+        self.adb.failure = "before"
+        with self.assertRaisesRegex(ValueError, "not confirmed"):
+            await self.editor.reorder(self.adb, "192.0.2.10", TV, self.adb.config["revision"], "music", ["NATIVE_RADIO", "NATIVE_MUSIC"])
+        await self.editor.restore(self.adb, "192.0.2.10", TV, self.adb.config["revision"])
+        self.assertFalse(self.ha.calls)
+
+    async def test_source_save_and_removal_keep_the_saved_order(self):
+        await self.editor.reorder(self.adb, "192.0.2.10", TV, "", "tv", ["HDMI2", "HDMI1"])
+        result = await self.save()
+        self.assertEqual(self.adb.config["order"]["tv"], ["HDMI2", "HDMI1"])
+        await self.editor.remove(self.adb, "192.0.2.10", TV, result["revision"], result["entries"][0]["id"])
+        self.assertEqual(self.adb.config["order"]["tv"], ["HDMI2", "HDMI1"])
 
     async def test_connected_app_saves_without_launch_and_runs_before_extra_action(self):
         result = await self.save(kind="hdmi", target="HDMI2", launch_entity="media_player.apple_tv",
@@ -354,7 +426,8 @@ class EditorWebTests(WebSourcesTests):
     async def test_new_operations_require_current_admin_and_page_token(self):
         self.controller.source_operation = AsyncMock(return_value={"ok": True})
         bodies = {"install": {"retire_old": False}, "refresh": {}, "targets": {}, "save": {"revision": "", "entry": {}},
-                  "remove": {"revision": "", "id": "BGW_123456789abc"}, "restore": {"revision": ""}, "test": {"id": "BGW_123456789abc"}}
+                  "remove": {"revision": "", "id": "BGW_123456789abc"}, "restore": {"revision": ""}, "test": {"id": "BGW_123456789abc"},
+                  "reorder": {"revision": "", "source_list": "tv", "ids": ["HDMI2", "HDMI1"]}}
         for operation, body in bodies.items():
             response = await self.client.post("/api/sources/" + operation, json=body)
             self.assertEqual(response.status, 403)
@@ -375,6 +448,8 @@ class EditorWebTests(WebSourcesTests):
             await self.controller.source_operation("install", {"tv_jid": "other", "retire_old": True})
         self.adb.install_helper.assert_not_awaited()
         self.adb.retire_legacy.assert_not_awaited()
+        with self.assertRaisesRegex(ValueError, "selected TV changed"):
+            await self.controller.source_operation("reorder", {"tv_jid": "other", "revision": "", "source_list": "tv", "ids": []})
 
     async def test_unscoped_commands_and_malformed_inputs_are_rejected(self):
         self.controller.source_operation = AsyncMock()

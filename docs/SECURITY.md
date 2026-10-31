@@ -135,8 +135,15 @@ its certificate and version before using its fixed removal receiver.
 
 The helper's control provider requires DUMP even for reads. DEVICE_POWER gates
 native broadcasts; its service is private, non-debuggable and has no Activity.
-Slot/type checks and bound native provider selection arguments restrict writes
-to owned generated sources. Native setting originals and interrupted plans are
+Slot/type checks and bound native provider selection arguments restrict source
+creation, removal and route changes to owned generated sources. Explicit source
+ordering may update only the position column of visible local MUSIC/TV sources,
+including existing inputs and players. The browser supplies a complete permutation
+of the current list, never row IDs or SQL. The helper checks identities, occupied
+positions and the active source, stages collision-free positions and retains a
+private recovery journal. The committed configuration revision determines whether
+interrupted ordering is completed or rolled back. Other products and source
+metadata are preserved. Native setting originals and interrupted plans are
 retained privately. A lost reply does not cause deletion of an HA capability
 that the TV might have committed. Restoring refuses later HA edits.
 

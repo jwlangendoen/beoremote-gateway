@@ -5,3 +5,6 @@ helper_java="${BEOR_JAVA_HOME:-${JAVA_HOME:-$PWD/../android-spotify-client/.tool
 mkdir -p .local/helper-tests
 "$helper_java/bin/javac" --release 8 -d .local/helper-tests tv_helper/src/nl/beoremote/tvhelper/LaunchGate.java tv_helper/tests/LaunchGateTest.java
 "$helper_java/bin/java" -cp .local/helper-tests nl.beoremote.tvhelper.LaunchGateTest
+
+"$helper_java/bin/javac" --release 8 -d .local/helper-tests tv_helper/src/nl/beoremote/tvhelper/SourceOrderPlan.java tv_helper/src/nl/beoremote/tvhelper/SourceOrderTransaction.java tv_helper/tests/SourceOrderTest.java
+"$helper_java/bin/java" -cp .local/helper-tests nl.beoremote.tvhelper.SourceOrderTest

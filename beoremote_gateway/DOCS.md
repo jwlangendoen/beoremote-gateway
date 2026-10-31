@@ -1,4 +1,4 @@
-# Beoremote Gateway 0.6.0-dev7
+# Beoremote Gateway 0.6.0-dev8
 
 The idea is to use Home Assistant a bit like BeoLiving Intelligence: your
 Beoremote One's LIGHT buttons run actions for your home. You need
@@ -61,6 +61,13 @@ connected device. For the latter, select the HDMI input, the device in Home Assi
 (such as Apple TV) and one of its reported apps or sources. The device must already
 be integrated in Home Assistant. TV Support 0.1.1 or later is needed for MUSIC. Optionally select a scene, lights-off, a script, or **Choose in Home Assistant**
 for any action or condition in its normal automation editor.
+
+**Sources** lists existing local TV sources as well as shortcuts added here,
+grouped under **TV** and **MUSIC**. Use **Move up** or **Move down** to change
+their order on the remote. This needs TV Support 0.1.2 or later; Configuration
+offers the update. Moving does not select a source or run an HA action. If the
+playing source would move, choose another source first. **Restore previous setup**
+also restores the order from before the last change.
 
 **Save source** adds or updates the shortcut without opening it. **Test on TV**
 selects it and can run its linked HA action. Check the actual picture and remote

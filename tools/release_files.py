@@ -27,7 +27,7 @@ FIXED = (
     "tools/build_helper.py", "tools/check_helper.py", "tools/test_helper.sh",
     "beoremote_gateway/gateway/helper_apk.json", "beoremote_gateway/gateway/helper_apk.b64",
     "tv_helper/AndroidManifest.xml", "tv_helper/res/values/strings.xml",
-    "tv_helper/tests/LaunchGateTest.java",
+    "tv_helper/tests/LaunchGateTest.java", "tv_helper/tests/SourceOrderTest.java",
 )
 MODULES = (
     "__init__.py", "__main__.py", "buttons.py", "config.py", "discovery.py",
@@ -40,7 +40,7 @@ MODULES = (
 def public_files(root=ROOT):
     root = Path(root).resolve()
     helper = tuple("tv_helper/src/nl/beoremote/tvhelper/" + name + ".java" for name in
-                   ("SupportService", "ControlProvider", "SourceReceiver", "StartReceiver", "LaunchGate", "ShortcutCatalog", "WebhookClient"))
+                   ("SupportService", "ControlProvider", "SourceReceiver", "StartReceiver", "LaunchGate", "ShortcutCatalog", "WebhookClient", "SourceOrder", "SourceOrderPlan", "SourceOrderTransaction"))
     names = sorted((*FIXED, *helper, *(f"beoremote_gateway/gateway/{name}" for name in MODULES)))
     for name in names:
         path = root / name

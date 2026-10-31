@@ -313,6 +313,8 @@ class SetupController:
                 return await editor.save(adb, address, local, jid, data["revision"], data["entry"])
             if operation == "remove":
                 return await editor.remove(adb, address, jid, data["revision"], data["id"])
+            if operation == "reorder":
+                return await editor.reorder(adb, address, jid, data["revision"], data["source_list"], data["ids"])
             if operation == "restore":
                 return await editor.restore(adb, address, jid, data["revision"])
             if operation == "test":

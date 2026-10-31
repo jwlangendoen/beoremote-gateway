@@ -167,7 +167,8 @@ def make_app(controller, allowed_peers=frozenset({INGRESS_PEER}), admin_check=No
     async def source_operation(request):
         operation = request.match_info["operation"]
         keys = {"install": ("retire_old",), "refresh": (), "targets": (), "save": ("revision", "entry"),
-                "remove": ("revision", "id"), "restore": ("revision",), "test": ("id",)}
+                "remove": ("revision", "id"), "restore": ("revision",), "test": ("id",),
+                "reorder": ("revision", "source_list", "ids")}
         if operation not in keys:
             raise ValueError("Unknown TV source operation.")
         data = await fields(request, ("tv_jid", *keys[operation]))

@@ -36,7 +36,9 @@ V_AUX, V_AUX2, PC, CAMERA and DTV, with exact ordinal checks. It refuses occupie
 slots and registers only generated `BGW_` IDs against the native local product.
 Labels and MUSIC/TV-list settings are saved privately before writes and restored when
 a shortcut is removed. Native provider operations use bound selection arguments.
-Neither the existing HDMI rows nor the source order of other apps is rewritten.
+Source edits keep existing HDMI and player registrations. Explicit ordering
+changes only native row positions and preserves all logical source IDs and
+other source metadata.
 
 ControlProvider requires `android.permission.DUMP` on every management call.
 Native source broadcasts require DEVICE_POWER. The service and background
@@ -68,9 +70,9 @@ chosen TV. Source editing remains available while LIGHT reception is paused.
 ## Validation limit
 
 The source editor, helper build, fixed protocol and state machine are checked
-offline. The new helper has not been installed on a household TV. Hardware ADB,
-firmware writes, native source selection, standby and physical key behavior still
-need the user's integral test. Keep the development PR separate from main until
+offline. TV Support 0.1.1 and ADB were checked on the household Horizon. The new 0.1.2
+ordering helper still needs its integral hardware check; native source selection,
+standby and physical key behavior need the user's confirmation. Keep the development PR separate from main until
 those results are recorded. No TV or household HA operation is needed to run the
 offline tests.
 
@@ -90,3 +92,24 @@ TV Support 0.1.1 writes both native category (TV 1 / MUSIC 3) and the firmware
 remote-list setting. Changes preserve the slot and originals; removal/restoration
 uses the correct list. Older saved entries default to TV. The gateway refuses
 MUSIC on an older helper and offers an in-place helper update.
+
+## Source order
+
+TV Support 0.1.2 reports the visible local catalog in native position order.
+The editor groups it into TV and MUSIC, including both existing sources and
+managed shortcuts. A reorder requires a complete current-list permutation,
+the selected TV, administrator access, page token and current helper revision.
+It neither selects a source nor calls HA actions or rewrites automations.
+
+The helper permutes the existing position values within the selected category;
+it preserves source names, types, product identity, route, settings and all
+other source columns. Other products and the other list are kept. The active
+source cannot move until another source is selected. New sources follow the
+remembered order; missing sources drop out. Saves/removal preserve that order.
+
+A private position journal is saved before writes. Updates first stage affected
+rows at unused temporary positions, then assign their destinations. A restart
+recovers to the old order unless the target configuration revision committed.
+Restore previous setup captures both native lists, including before the first
+explicit reorder, and does not read or alter source automations for an order-only
+restore. Uncertain ADB replies are reconciled against the committed revision.

@@ -1,8 +1,8 @@
 {
   "package": "nl.beoremote.tvhelper",
-  "version": "0.1.1",
-  "version_code": 2,
-  "sha256": "777d14dcbd2ddf3f984c49bc6cc3e99ca597e04fcf5a45ddeb00b3bd2654f208",
+  "version": "0.1.2",
+  "version_code": 3,
+  "sha256": "f2443a23d6db185f6273f9fb9d8dd261a3b5a4acee7bc708ebc4c31fea6b9a3e",
   "certificate_sha256": "09379e49dcc8e201a99f73a62c7d88e0bc177db4461068160ea861fbdf6fab88",
-  "source_sha256": "194080ea998b81c90b2ebffe12d14b0486c29d8c6e9bcd102b9e4bdc0d1df709"
+  "source_sha256": "e66d83b6d2c4c1bc30b9a329499a1c98fce988727348aacbb6692fd72d3652a3"
 }
