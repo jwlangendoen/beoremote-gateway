@@ -63,11 +63,43 @@ dialog::backdrop { background:#0006; } #learn-note { margin-bottom:16px; } #dial
     <div class="heading"><h2 id="actions-title">Light settings</h2><button id="add" class="primary" type="button" disabled>Add a button</button></div>
     <p class="muted">Choose what happens in Home Assistant when you press a LIGHT button.</p>
     <p id="action-note" role="status"></p>
+    <button id="light-connection-help" type="button" data-open-configuration hidden>Open Configuration</button>
     <p id="saved" role="status" hidden></p>
     <p id="empty" class="muted" hidden>Add a button to run a scene, a script or another Home Assistant action.</p>
     <div id="rules"></div>
     <button id="reload-actions" type="button" disabled>Refresh</button>
   </section>
+  <div class="help" id="light-help" hidden>
+    <details id="remote-help">
+      <summary>No button received?</summary>
+      <p>Turn on your TV. On your Beoremote One BT, open <strong>LIST → LIGHT</strong> and press a function. If it arrives in the app, no TV menu changes are needed.</p>
+      <p>For Beovision Horizon, select the gateway on the TV:</p>
+      <ol>
+        <li>Open <strong>MENU → Settings</strong>.</li>
+        <li>Highlight <strong>Service Menu</strong> and press the <strong>red button before the centre button</strong>.</li>
+        <li>Open <strong>Customer Service Menu → Settings → BeoLink Gateway</strong>.</li>
+        <li>Select <strong id="gateway-name">Home Assistant Gateway</strong> and confirm with the centre button.</li>
+      </ol>
+      <p class="muted">If the gateway is missing, check the chosen TV in Configuration, then reopen the TV's gateway list.</p>
+      <button type="button" data-open-configuration>Open Configuration</button>
+    </details>
+    <details>
+      <summary>Rename LIGHT functions on the remote</summary>
+      <ol>
+        <li>Open <strong>LIST → Settings → Advanced → Products</strong>. Show or add the separate <strong>Beovision (infrared/IR)</strong> profile.</li>
+        <li>Select that <strong>Beovision</strong> product at the top of LIST.</li>
+        <li>Open <strong>Settings → Advanced → Light menu → Rename</strong>. Show and Move control visibility and order.</li>
+        <li>Switch back to your Bluetooth-paired TV.</li>
+      </ol>
+      <p class="muted">Keep your TV pairing. Names on the remote and in this app are set separately.</p>
+    </details>
+    <details>
+      <summary>LIGHT actions in Home Assistant</summary>
+      <p>Each button uses a normal Home Assistant automation. Open it in Home Assistant for any action or condition. Changes made there stay there; this app won't overwrite them.</p>
+      <p>Disable any older automation for the same button to avoid running both.</p>
+      <a href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fjwlangendoen%2Fbeoremote-gateway%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fbeoremote_light_action.yaml" target="_blank" rel="noopener noreferrer">Import blueprint</a>
+    </details>
+  </div>
   </div>
   <div id="panel-sources" role="tabpanel" aria-labelledby="tab-sources" hidden>
   <p id="source-note" class="muted" role="status"></p>
@@ -83,6 +115,19 @@ dialog::backdrop { background:#0006; } #learn-note { margin-bottom:16px; } #dial
         <div id="source-rows"></div>
         <p id="source-slots" class="muted"></p>
         <div class="actions"><button id="source-refresh" type="button">Refresh sources</button><button id="source-restore" type="button" hidden>Restore previous setup</button></div>
+        <div class="help">
+          <details>
+            <summary>Source actions in Home Assistant</summary>
+            <p>When adding or changing a shortcut, you can also link a scene, lights or a script. Choose in Home Assistant lets you add any action or condition in its automation editor.</p>
+            <p>Apps on connected devices, such as Apple TV, need that device's integration in Home Assistant. Opening a local TV app or HDMI input does not need a Home Assistant action.</p>
+            <p>Save source adds or updates the shortcut without opening it. Test on TV selects the source and can run its linked action.</p>
+          </details>
+          <details>
+            <summary>Reordering and restoring sources</summary>
+            <p>Reorder changes a local preview of one list. Save TV order or Save MUSIC order applies it to the remote; Cancel discards that edit. Moving sources does not open them.</p>
+            <p>Restore previous setup restores the source list, order and unchanged linked automations from before the last saved change. Later changes made in Home Assistant are kept.</p>
+          </details>
+        </div>
       </div>
   </section>
   </div>
@@ -93,7 +138,7 @@ dialog::backdrop { background:#0006; } #learn-note { margin-bottom:16px; } #dial
       <button id="change-tv" type="button" hidden>Change TV</button>
     </div>
     <p id="connection" class="muted" hidden></p>
-    <p id="manual" hidden>For automatic setup, set Mode to auto in the app's Configuration tab and restart.</p>
+    <p id="manual" hidden>For automatic setup, set Mode to auto in the Home Assistant app's Configuration tab (outside this gateway UI) and restart.</p>
     <button id="resume" type="button" hidden>Resume button reception</button>
     <div id="chooser" hidden>
       <button id="scan" type="button">Find my TV</button>
@@ -133,39 +178,11 @@ dialog::backdrop { background:#0006; } #learn-note { margin-bottom:16px; } #dial
     </div>
   </section>
   <div class="help" id="setup-help" hidden>
-    <details id="remote-help">
-      <summary>No button received?</summary>
-      <p>Turn on your TV. On the Beoremote, open <strong>LIST → LIGHT</strong> and press a function. If it arrives in the app, no TV menu changes are needed.</p>
-      <p>For Beovision Horizon, select the gateway on the TV:</p>
-      <ol>
-        <li>Open <strong>MENU → Settings</strong>.</li>
-        <li>Highlight <strong>Service Menu</strong> and press the <strong>red button before the centre button</strong>.</li>
-        <li>Open <strong>Customer Service Menu → Settings → BeoLink Gateway</strong>.</li>
-        <li>Select <strong id="gateway-name">Home Assistant Gateway</strong> and confirm with the centre button.</li>
-      </ol>
-      <p class="muted">If the gateway is missing, choose your TV in this app, then reopen the TV's gateway list.</p>
-    </details>
-    <details>
-      <summary>Rename LIGHT functions on the remote</summary>
-      <ol>
-        <li>Open <strong>LIST → Settings → Advanced → Products</strong>. Show or add the separate <strong>Beovision (infrared/IR)</strong> profile.</li>
-        <li>Select that <strong>Beovision</strong> product at the top of LIST.</li>
-        <li>Open <strong>Settings → Advanced → Light menu → Rename</strong>. Show and Move control visibility and order.</li>
-        <li>Switch back to your Bluetooth-paired TV.</li>
-      </ol>
-      <p class="muted">Keep your TV pairing. Names on the remote and in this app are set separately.</p>
-    </details>
     <details>
       <summary>Connection settings</summary>
       <p><code id="details"></code></p>
       <div class="actions"><button id="pause" type="button" hidden>Pause button reception</button><button id="copy" type="button" disabled>Copy TV identity</button><small id="copied" aria-live="polite"></small></div>
-      <p class="muted">To change the name in the TV menu, use Name in the TV menu in the app's optional Configuration settings.</p>
-    </details>
-    <details>
-      <summary>Automations and advanced setup</summary>
-      <p>Each button uses a normal Home Assistant automation. Open it in Home Assistant for any action or condition. Changes made there stay there; this app won't overwrite them.</p>
-      <p>Disable any older automation for the same button to avoid running both.</p>
-      <a href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fjwlangendoen%2Fbeoremote-gateway%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fbeoremote_light_action.yaml" target="_blank" rel="noopener noreferrer">Import blueprint</a>
+      <p class="muted">To change the name in the TV menu, use Name in the TV menu in the Home Assistant app’s Configuration tab (outside this gateway UI).</p>
     </details>
   </div>
   </div>
@@ -381,12 +398,13 @@ function show(data) {
   el('light-empty').hidden=hasTV;el('sources-empty').hidden=hasTV;
   el('source-configuration').hidden=!hasTV;
   el('actions-section').hidden=!hasTV;
-  el('setup-help').hidden=!hasTV;
+  el('setup-help').hidden=!hasTV;el('light-help').hidden=!hasTV;
+  el('light-connection-help').hidden=!hasTV || actionReady(data);
   copyValue=data.tv_jid || ''; el('copy').disabled=!copyValue;
   el('details').textContent=[copyValue,data.addresses?.tv?'TV: '+data.addresses.tv:'',data.addresses?.gateway?'Gateway: '+data.addresses.gateway:''].filter(Boolean).join(' · ');
   if(!actionReady(data)) {
     loadedTV=''; rules=[]; closePanel(); el('rules').replaceChildren();el('empty').hidden=true;
-    actionNotice(!hasTV?'Choose your TV first.':data.state==='paused'?'Resume button reception to add or change actions.':data.state==='disabled'?'Enable the gateway in the app configuration to set up buttons.':data.state==='error'?'Check the connection message above.':'Connecting to your TV…');
+    actionNotice(!hasTV?'Choose your TV first.':data.state==='paused'?'Resume button reception in Configuration to add or change actions.':data.state==='disabled'?'Enable the gateway in the Home Assistant app settings to set up buttons.':data.state==='error'?'Check the TV connection in Configuration.':'Connecting to your TV…');
   } else {
     if(!loadedTV)actionNotice('Loading button actions…');
     if(loadedTV && loadedTV!==data.tv_jid){loadedTV='';rules=[];closePanel();el('rules').replaceChildren();}
@@ -643,7 +661,7 @@ el('add').addEventListener('click',startLearning);
 el('retry').addEventListener('click',startLearning);
 el('cancel').addEventListener('click',cancelLearning);
 el('learn-panel').addEventListener('cancel',event=>{event.preventDefault();cancelLearning();});
-el('learn-help').addEventListener('click',async()=>{if(await cancelLearning()){showTab('configuration',true);el('remote-help').open=true;el('remote-help').scrollIntoView({block:'center'});el('remote-help').querySelector('summary').focus();}});
+el('learn-help').addEventListener('click',async()=>{if(await cancelLearning()){showTab('light',true);el('remote-help').open=true;el('remote-help').scrollIntoView({block:'center'});el('remote-help').querySelector('summary').focus();}});
 el('edit-known').addEventListener('click',async()=>{const rule=known;if(await cancelLearning())await editRule(rule);});
 el('open-known').addEventListener('click',async event=>{event.preventDefault();const path=known.edit_path;if(await cancelLearning())window.top.location.href=path;});
 el('reload-actions').addEventListener('click',async()=>{if(actionBusy)return;actionBusy=true;actionControls();try{await loadActions();}catch(error){actionNotice(error.message);}finally{actionBusy=false;actionControls();}});

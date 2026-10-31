@@ -5,6 +5,7 @@
 - Keep unsaved order across tabs; preserve and check drafts after refused or uncertain saves.
 - Reduce movement controls in the normal list and improve keyboard focus and status messages.
 - Clarify the Beoremote One BT and Android-based Beovision connection, tested Horizon setup and Horizon-only source support.
+- Place LIGHT troubleshooting and action help in Light, source help in Sources and connection settings in Configuration.
 
 # 0.6.0-dev11
 
