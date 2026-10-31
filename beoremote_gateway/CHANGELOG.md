@@ -1,3 +1,8 @@
+# 0.6.0-dev7
+
+- Show the Horizon menu path for USB debugging and steps to reveal Developer options.
+- Remove the extra explanation below the previous-helper replacement option.
+
 # 0.6.0-dev6 — development candidate
 
 - Split setup into Light, Sources and Configuration tabs, with empty states that
