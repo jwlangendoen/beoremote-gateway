@@ -1,9 +1,12 @@
 # Beoremote Gateway 0.6.0-dev12
 
-The idea is to use Home Assistant a bit like BeoLiving Intelligence: your
-Beoremote One's LIGHT buttons run actions for your home. You need
-Home Assistant OS and a paired Beoremote with a Beovision Horizon on the same
-network. Only Horizon has been tested.
+Control Home Assistant with your Beoremote One BT through an Android-based
+Beovision TV. The remote pairs with the TV over Bluetooth; the TV forwards
+its LIGHT commands to the gateway over your local network.
+
+You need Home Assistant OS and a compatible TV on the same local network.
+Only Beovision Horizon has been tested. Other Android-based Beovision models
+are unverified; source management and the TV Support app support Horizon only.
 
 ## 1. Choose your TV
 
@@ -11,7 +14,9 @@ Install **Beoremote Gateway**, click **Start**, then **Open Web UI**.
 Turn on your TV, choose it and click **Use this TV**.
 
 Enable **Show in sidebar** on the app's Info tab for direct access next time.
-The Configuration tab only contains optional technical settings.
+In the gateway's **Configuration** tab, choose your TV and optionally set up
+source support. Use **Light** to configure LIGHT buttons and **Sources** to
+manage the remote's source lists.
 
 ## 2. Add a button
 

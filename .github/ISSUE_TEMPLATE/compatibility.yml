@@ -13,7 +13,7 @@ body:
     id: setup
     attributes:
       label: The rest of your setup
-      description: Remote type, HA version and host, and gateway version.
+      description: Remote model (including BT or IR), HA version and host, and gateway version.
     validations:
       required: true
   - type: checkboxes

@@ -1,7 +1,7 @@
 # Rename the LIGHT functions
 
 On the Horizon, the name editor is hidden in a separate infrared product profile
-on the Beoremote One. You only need to do this if you want your own display names.
+on the Beoremote One BT. You only need to do this if you want your own display names.
 
 1. Open **LIST → Settings → Advanced → Products**. Show or add the separate
    **Beovision (infrared/IR)** profile. If there is a **Show** menu, enable it there.

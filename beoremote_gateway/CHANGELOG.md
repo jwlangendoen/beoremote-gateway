@@ -4,6 +4,7 @@
 - Reorder TV or MUSIC locally, then save the finished list once or cancel the edit.
 - Keep unsaved order across tabs; preserve and check drafts after refused or uncertain saves.
 - Reduce movement controls in the normal list and improve keyboard focus and status messages.
+- Clarify the Beoremote One BT and Android-based Beovision connection, tested Horizon setup and Horizon-only source support.
 
 # 0.6.0-dev11
 
