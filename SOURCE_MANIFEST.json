@@ -30,7 +30,7 @@
   "beoremote_gateway/gateway/protocol.py": "4b987e48d1ddec1b0e8c08dd400dcc258debb6f28217a10ccc3b02c10a5c8d1a",
   "beoremote_gateway/gateway/runtime.py": "d7abad95cbc9c3ac6f2869015411a501e4934a8b21afa4263d95c10688519fd2",
   "beoremote_gateway/gateway/server.py": "5b9c8421b6a979c3ef479ca92b8b217ef4b19fa11da5b48f9258842bb8202c95",
-  "beoremote_gateway/gateway/setup.html": "70ef6d4de451f1e0e593f4b48a46f15c90b4f0b38a93d92b1afeb55fb3f5c92c",
+  "beoremote_gateway/gateway/setup.html": "17e61f50056a5df2b7c116baa871d857ab7be3a4da8dff28c2cd4c4ee741f70a",
   "beoremote_gateway/gateway/setup.py": "3b2bfc67bc1c8476db4c52484d998abfe47ce0f93705b4baad7f9e3bd59a6e2b",
   "beoremote_gateway/gateway/sources.py": "5d932eaff0d7437613edf48f90e2d3aafa81d6cff36acc4130480ae685788ed4",
   "beoremote_gateway/gateway/tv_sources.py": "c3c5ac8945d27a30a24b8806762b1cf270c21bfa60f55770ad87cc3549abc820",
