@@ -13,6 +13,12 @@ from .actions import GROUPS, SERVICES
 ID = re.compile(r"BGW_[a-f0-9]{12}")
 REVISION = re.compile(r"[a-f0-9]{32}")
 EMPTY = {"entries": []}
+ENTRY_DEFAULTS = {"source_list": "tv", "launch_entity": "", "launch_source": ""}
+
+
+def helper_entries(entries):
+    return [{**{key: entry[key] for key in ("id", "name", "kind", "target", "slot", "callback")},
+             "source_list": entry.get("source_list", "tv")} for entry in entries]
 
 
 def private_write(path, data):
@@ -42,22 +48,43 @@ def automation_id(tv, entry_id):
 def automation(tv, entry, webhook):
     kind, target = entry["action_kind"], entry["action_target"]
     guard = "{{ trigger is defined and (trigger.platform != 'webhook' or (trigger.json is defined and trigger.json.get('source') == '" + entry["id"] + "' and trigger.json.get('tv') == '" + tv + "' and 0 <= (now().timestamp() - (trigger.json.get('created_at', 0) | float(0))) < 5)) }}"
-    actions = [] if kind == "custom" else [{"action": SERVICES[kind], "target": {"entity_id": target}}]
+    actions = [] if kind in {"custom", "none"} else [{"action": SERVICES[kind], "target": {"entity_id": target}}]
+    launch = []
+    if entry.get("launch_entity"):
+        entity = entry["launch_entity"]
+        if entry.get("launch_wake"):
+            launch += [{"if": [{"condition": "state", "entity_id": entity, "state": "off"}],
+                        "then": [{"action": "media_player.turn_on", "target": {"entity_id": entity}}]},
+                       {"wait_template": "{{ states('" + entity + "') not in ['off', 'unknown', 'unavailable'] }}",
+                        "timeout": {"seconds": 3}, "continue_on_timeout": False},
+                       {"condition": "template", "value_template": guard}]
+        launch.append({"action": "media_player.select_source", "target": {"entity_id": entity},
+                       "data": {"source": entry["launch_source"]}})
     return {"id": automation_id(tv, entry["id"]), "alias": "Beoremote source · " + entry["name"],
             "description": "Managed by Beoremote Gateway source setup.", "mode": "single", "max_exceeded": "silent",
             "triggers": [{"trigger": "webhook", "webhook_id": webhook, "allowed_methods": ["POST"], "local_only": True}],
-            "conditions": [], "actions": [{"condition": "template", "value_template": guard}, *actions]}
+            "conditions": [], "actions": [{"condition": "template", "value_template": guard}, *launch, *actions]}
 
 
 def validate_entry(data, status, old=None):
-    if not isinstance(data, dict) or set(data) != {"id", "name", "kind", "target", "action_kind", "action_target"}:
+    required = {"id", "name", "kind", "target", "action_kind", "action_target"}
+    if not isinstance(data, dict) or not required <= set(data) or set(data) - required - ENTRY_DEFAULTS.keys():
         raise ValueError("Reload the source editor and try again.")
-    entry = dict(data)
+    entry = {**ENTRY_DEFAULTS, **data}
     if not all(isinstance(value, str) for value in entry.values()):
         raise ValueError("Choose the source values from the editor.")
     if not isinstance(entry["name"], str) or not 1 <= len(entry["name"].strip()) <= 32 or any(ord(c) < 32 for c in entry["name"]):
         raise ValueError("Give this source a name of 1–32 characters.")
     entry["name"] = entry["name"].strip()
+    if entry["source_list"] not in {"tv", "music"}:
+        raise ValueError("Choose MUSIC or TV for the remote source list.")
+    if entry["source_list"] == "music" and "music" not in status.get("source_lists", []):
+        raise ValueError("Update TV Support before adding MUSIC sources. Your existing sources are kept.")
+    if entry["launch_entity"]:
+        if entry["kind"] != "hdmi" or not re.fullmatch(r"media_player\.[a-z0-9_]+", entry["launch_entity"]) or not 1 <= len(entry["launch_source"]) <= 256 or any(ord(c) < 32 for c in entry["launch_source"]):
+            raise ValueError("Choose a connected media player and an app or source from its list.")
+    elif entry["launch_source"]:
+        raise ValueError("Choose the device that opens this app or source.")
     if old is None:
         if entry["id"] != "":
             raise ValueError("Choose a saved source to change it.")
@@ -121,12 +148,32 @@ class TVSources:
                 raise ValueError("TV Support returned an invalid source list.")
             entry = saved.get(item["id"], {})
             public = {key: item[key] for key in ("id", "name", "kind", "target", "slot")}
-            row = {**public, "action_kind": entry.get("action_kind", "none"), "action_target": entry.get("action_target", "")}
+            row = {**public, "source_list": item.get("source_list", "tv"),
+                   "launch_entity": entry.get("launch_entity", ""), "launch_source": entry.get("launch_source", ""),
+                   "action_kind": entry.get("action_kind", "none"), "action_target": entry.get("action_target", "")}
             if entry.get("webhook"):
                 row["edit_path"] = "/config/automation/edit/" + automation_id(tv, item["id"])
             rows.append(row)
         # Explicit projection: callback capabilities and TV originals never reach the UI.
-        return {key: status[key] for key in ("state", "error", "revision", "version", "slots", "inputs", "apps", "legacy_trusted", "legacy_sources") if key in status} | {"entries": rows, "can_restore": self.path(tv, True).exists()}
+        return {key: status[key] for key in ("state", "error", "revision", "version", "source_lists", "slots", "inputs", "apps", "legacy_trusted", "legacy_sources") if key in status} | {"entries": rows, "can_restore": self.path(tv, True).exists()}
+
+    async def media_players(self):
+        players = []
+        for state in await self.actions.ha.states():
+            entity, attrs = state.get("entity_id", ""), state.get("attributes", {})
+            features = attrs.get("supported_features", 0)
+            sources = attrs.get("source_list", [])
+            if (not re.fullmatch(r"media_player\.[a-z0-9_]+", entity) or state.get("state") == "unavailable"
+                    or type(features) is not int or not features & 2048 or not isinstance(sources, list)):
+                continue
+            names = sorted({s for s in sources if isinstance(s, str) and 1 <= len(s) <= 256 and not any(ord(c) < 32 for c in s)}, key=str.casefold)
+            if names:
+                players.append({"id": entity, "name": attrs.get("friendly_name") or entity,
+                                "sources": [{"id": s, "name": s} for s in names], "wake": bool(features & 128)})
+        return sorted(players, key=lambda p: (p["name"].casefold(), p["id"]))
+
+    async def targets(self):
+        return {**await self.actions.targets(), "media_players": await self.media_players()}
 
     async def wait_ready(self, adb, address, tv, operation=None):
         for _ in range(20):
@@ -173,7 +220,12 @@ class TVSources:
         store = self.load(tv)
         old = next((e for e in store["entries"] if e["id"] == data.get("id")), None)
         entry = validate_entry(data, status, old)
-        if entry["action_kind"] != "none":
+        if entry["launch_entity"]:
+            player = next((p for p in await self.media_players() if p["id"] == entry["launch_entity"]), None)
+            if player is None or not any(s["id"] == entry["launch_source"] for s in player["sources"]):
+                raise ValueError("This device or app is unavailable. Refresh and choose it from Home Assistant's current list.")
+            entry["launch_wake"] = player["wake"]
+        if entry["action_kind"] != "none" or entry["launch_entity"]:
             configuration = await self.actions.ha.request("GET", "config")
             if not isinstance(configuration, dict) or "webhook" not in configuration.get("components", []):
                 raise ValueError("Home Assistant's webhook integration is unavailable. Enable it before linking a source action.")
@@ -185,12 +237,12 @@ class TVSources:
             entry.update({key: old[key] for key in ("webhook", "action_hash") if key in old})
         key = automation_id(tv, entry["id"])
         before = await self.actions.ha.request("GET", "config/automation/config/" + key)
-        same_action = old and all(entry[field] == old[field] for field in ("action_kind", "action_target"))
+        same_action = old and all(entry.get(field, ENTRY_DEFAULTS.get(field, False)) == old.get(field, ENTRY_DEFAULTS.get(field, False)) for field in ("action_kind", "action_target", "launch_entity", "launch_source", "launch_wake"))
         if before is not None and (old is None or digest(before) != old.get("action_hash")) and not same_action:
             raise ValueError("This source's automation was edited in Home Assistant. Keep or edit that action there.")
         after = before
         if not same_action:
-            if entry["action_kind"] == "none":
+            if entry["action_kind"] == "none" and not entry["launch_entity"]:
                 entry.pop("webhook", None)
                 entry.pop("action_hash", None)
                 after = None
@@ -210,7 +262,7 @@ class TVSources:
         private_write(self.path(tv, True), journal)
         if after != before and after is not None:
             await self._set_automation(key, after)
-        config = {"revision": secrets.token_hex(16), "entries": [{k: e[k] for k in ("id", "name", "kind", "target", "slot", "callback")} for e in entries]}
+        config = {"revision": secrets.token_hex(16), "entries": helper_entries(entries)}
         try:
             await self.apply(adb, address, tv, config, revision)
         except Exception as error:
@@ -243,7 +295,7 @@ class TVSources:
         remove_action = before is not None and digest(before) == old.get("action_hash")
         private_write(self.path(tv, True), {"helper": backup["config"], "store": store, "automation_id": key, "before": before, "after": None if remove_action else before, "enabled": await self._enabled(key)})
         entries = [e for e in store["entries"] if e["id"] != entry_id]
-        await self.apply(adb, address, tv, {"entries": [{k: e[k] for k in ("id", "name", "kind", "target", "slot", "callback")} for e in entries]}, revision)
+        await self.apply(adb, address, tv, {"entries": helper_entries(entries)}, revision)
         private_write(self.path(tv), {"entries": entries})
         if remove_action:
             await self._set_automation(key, None)

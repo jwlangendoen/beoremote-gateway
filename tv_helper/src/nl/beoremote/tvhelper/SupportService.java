@@ -137,24 +137,25 @@ public final class SupportService extends Service {
         boolean changed=false;
         for(ShortcutCatalog.Entry e:old)if(!nextIds.contains(e.source)){
             int deleted=getContentResolver().delete(SOURCES,"source_pid=? AND source_name=? AND source_type=?",new String[]{""+productRow,e.source,""+e.firmwareOrdinal});changed|=deleted>0;
-            if(originals.has(""+e.slot)){JSONObject saved=originals.getJSONObject(""+e.slot);Iterator<String> keys=saved.keys();while(keys.hasNext()){String key=keys.next();JSONObject original=saved.getJSONObject(key);JSONObject current=setting(key);String expected=key.endsWith("friendly_name")?e.label:"tv";
+            if(originals.has(""+e.slot)){JSONObject saved=originals.getJSONObject(""+e.slot);Iterator<String> keys=saved.keys();while(keys.hasNext()){String key=keys.next();JSONObject original=saved.getJSONObject(key);JSONObject current=setting(key);String expected=key.endsWith("friendly_name")?e.label:e.sourceList;
                 if(current.getBoolean("exists")&&!expected.equals(current.optString("value","")))throw new Exception("setting changed outside helper");
                 if(original.getBoolean("exists"))putSetting(key,original.isNull("value")?null:original.getString("value"));else getContentResolver().delete(SETTINGS,"key=?",new String[]{key});}
                 originals.remove(""+e.slot);
             }
         }
-        for(ShortcutCatalog.Entry e:entries){String where="source_pid=? AND source_name=?";String[] args={""+productRow,e.source};boolean exists;String label=null;
-            try(Cursor c=getContentResolver().query(SOURCES,new String[]{"source_type","source_friendly_name"},where,args,null)){exists=c!=null&&c.moveToFirst();if(exists){if(c.getInt(0)!=e.firmwareOrdinal)throw new Exception("source type");label=c.getString(1);}}
-            if(exists&&e.label.equals(label))continue;
-            putSetting("sourcelist_"+ShortcutCatalog.SUFFIXES[e.slot]+"_friendly_name",e.label);putSetting("sourcelist_"+ShortcutCatalog.SUFFIXES[e.slot]+"_beoremote_list","tv");
-            ContentValues v=new ContentValues();v.put("source_friendly_name",e.label);
+        for(ShortcutCatalog.Entry e:entries){String where="source_pid=? AND source_name=?";String[] args={""+productRow,e.source};boolean exists;String label=null;int category=-1;
+            try(Cursor c=getContentResolver().query(SOURCES,new String[]{"source_type","source_friendly_name","category"},where,args,null)){exists=c!=null&&c.moveToFirst();if(exists){if(c.getInt(0)!=e.firmwareOrdinal)throw new Exception("source type");label=c.getString(1);category=c.getInt(2);}}
+            String listKey="sourcelist_"+ShortcutCatalog.SUFFIXES[e.slot]+"_beoremote_list";
+            if(exists&&e.label.equals(label)&&category==e.category&&e.sourceList.equals(setting(listKey).optString("value","")))continue;
+            putSetting("sourcelist_"+ShortcutCatalog.SUFFIXES[e.slot]+"_friendly_name",e.label);putSetting(listKey,e.sourceList);
+            ContentValues v=new ContentValues();v.put("source_friendly_name",e.label);v.put("category",e.category);
             if(exists){if(getContentResolver().update(SOURCES,v,where,args)!=1)throw new Exception("rename");}
-            else{v.put("source_pid",productRow);v.put("source_name",e.source);v.put("source_type",e.firmwareOrdinal);v.put("category",1);v.put("is_active",0);v.put("is_use",1);v.put("profile","");v.put("source_ir_key",0);v.put("signal_sensed",1);v.put("cp_scheme",8);if(getContentResolver().insert(SOURCES,v)==null)throw new Exception("insert");}changed=true;
+            else{v.put("source_pid",productRow);v.put("source_name",e.source);v.put("source_type",e.firmwareOrdinal);v.put("is_active",0);v.put("is_use",1);v.put("profile","");v.put("source_ir_key",0);v.put("signal_sensed",1);v.put("cp_scheme",8);if(getContentResolver().insert(SOURCES,v)==null)throw new Exception("insert");}changed=true;
         }
         ControlProvider.write(this,"originals",originals);if(changed)publish();
     }
     void capabilities()throws Exception{synchronized(ControlProvider.LOCK){
-        JSONObject state=ControlProvider.read(this,"status","{}");if(!"working".equals(state.optString("state"))&&!"attention".equals(state.optString("state")))state.put("state","ready");state.put("tv",productId);state.put("version","0.1.0");
+        JSONObject state=ControlProvider.read(this,"status","{}");if(!"working".equals(state.optString("state"))&&!"attention".equals(state.optString("state")))state.put("state","ready");state.put("tv",productId);state.put("version","0.1.1");state.put("source_lists",new JSONArray().put("tv").put("music"));
         JSONArray slots=new JSONArray(),inputs=new JSONArray(),apps=new JSONArray();
         boolean legacyTrusted=false;try{PackageInfo info=getPackageManager().getPackageInfo("nl.johan.horizonappletv",PackageManager.GET_SIGNATURES);byte[] hash=java.security.MessageDigest.getInstance("SHA-256").digest(info.signatures[0].toByteArray());StringBuilder hex=new StringBuilder();for(byte b:hash)hex.append(String.format(java.util.Locale.ROOT,"%02x",b&255));legacyTrusted=info.versionCode>=108&&"6ce62474011f288bed0a822e0c8587a83c05d3dec19226a19e6002e619979921".equals(hex.toString());}catch(Exception ignored){}
         int legacySources=0;Set<String> legacyNames=new HashSet<>(Arrays.asList("ATV_NETFLIX","ATV_YOUTUBE","ATV_PLUS","ATV_PRIME","ATV_SVT","ATV_HBO","ATV_F1_TV","ATV_NLZIET"));

@@ -306,7 +306,7 @@ class SetupController:
                         raise ValueError("Choose a normal TV input before replacing the old shortcuts, then try again.")
                 return await editor.status(adb, address, jid)
             if operation == "targets":
-                return await self.actions.targets()
+                return await editor.targets()
             if operation == "refresh":
                 return await editor.refresh(adb, address, jid)
             if operation == "save":

@@ -165,7 +165,7 @@ updates remained enabled. One Beoremote installation remained, with all five
 existing button actions present. The temporary management terminal was stopped.
 The 0.6.0 development changes are separate from that installed repository version.
 
-## Source editor and TV Support (0.6.0-dev5, development only)
+## Source editor and TV Support (0.6.0-dev6, development only)
 
 On 30 October 2026, 155 local Python tests passed. They cover fixed management
 operations, the bundled installer, slot allocation, current TV/revision/owner
@@ -208,3 +208,19 @@ playback/standby and physical remote behavior remain for the integral test.
 
 If you try another setup, please include its model, firmware and which buttons
 or actions worked.
+
+## MUSIC/TV, connected apps and tabs (0.6.0-dev6)
+
+- 162 Python regressions pass, including list change/restore, live media-player
+  capability and app validation, no playback on Save, automation ordering and
+  pause preservation. TV Support 0.1.1 is rebuilt and its signed source digest
+  passes; existing lifecycle tests pass.
+- Browser fixtures verify Light/Sources/Configuration, both unconfigured empty
+  states and Configuration links, source setup, MUSIC and TV saves and direct
+  connected-device app selection. No household device is used by those fixtures.
+- Network-disabled Home Assistant Core 2026.10.4 accepts the app selection and
+  wake/wait schema, reports a virtual player's apps, runs select_source followed
+  by a virtual script only for a valid fresh callback, rejects wrong/stale/future
+  callbacks and preserves paused state across edits/removal/restoration.
+- Native MUSIC placement, actual Apple TV launch and remote keys remain hardware
+  checks until an explicit physical result is recorded.
