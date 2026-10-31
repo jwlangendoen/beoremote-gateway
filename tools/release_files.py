@@ -24,7 +24,7 @@ FIXED = (
     "beoremote_gateway/gateway/setup.html",
     "beoremote_gateway/translations/en.yaml", "beoremote_gateway/translations/nl.yaml",
     "tests/test_sources.py", "tests/test_tv_sources.py", "docs/SOURCES.md",
-    "tools/build_helper.py", "tools/check_helper.py", "tools/test_helper.sh",
+    "tools/build_helper.py", "tools/check_helper.py", "tools/test_helper.sh", "tools/test_source_launch.py",
     "beoremote_gateway/gateway/helper_apk.json", "beoremote_gateway/gateway/helper_apk.b64",
     "tv_helper/AndroidManifest.xml", "tv_helper/res/values/strings.xml",
     "tv_helper/tests/LaunchGateTest.java", "tv_helper/tests/SourceOrderTest.java",

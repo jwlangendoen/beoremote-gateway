@@ -13,8 +13,12 @@ final class WebhookClient {
         }catch(Exception error){throw new JSONException("callback");}
     }
     static void send(String address,String source,String tv) throws Exception {
+        send(address,source,tv,false);
+    }
+    static void send(String address,String source,String tv,boolean cancel) throws Exception {
         if(address.isEmpty())return;validate(address);
         JSONObject body=new JSONObject();body.put("source",source);body.put("tv",tv);body.put("created_at",System.currentTimeMillis()/1000.0);
+        if(cancel)body.put("cancel",true);
         byte[] bytes=body.toString().getBytes("UTF-8");
         HttpURLConnection c=(HttpURLConnection)new URL(address).openConnection(Proxy.NO_PROXY);
         try{c.setConnectTimeout(1500);c.setReadTimeout(1500);c.setInstanceFollowRedirects(false);c.setRequestMethod("POST");c.setRequestProperty("Content-Type","application/json");c.setDoOutput(true);c.setFixedLengthStreamingMode(bytes.length);

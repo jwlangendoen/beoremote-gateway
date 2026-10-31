@@ -43,6 +43,13 @@ jobs:
       - run: pip-audit -r requirements-dev.txt --progress-spinner off
       - run: bandit -r beoremote_gateway/gateway --severity-level high
 
+  source-launch:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Execute wake, readiness, cancellation and failure scenarios in isolated HA Core
+        run: docker run --rm --network none -v "$PWD:/repo:ro" --entrypoint python ghcr.io/home-assistant/home-assistant:2026.10.4 /repo/tools/test_source_launch.py
+
   container:
     runs-on: ${{ matrix.runner }}
     strategy:
