@@ -1,7 +1,9 @@
 # What I've tested
 
-My setup is a Beovision Horizon, a Beoremote One and Home Assistant Green.
+My setup is a Beovision Horizon, a Beoremote One BT and Home Assistant Green.
 Other TV models still need testing.
+Sections below record results at the time of each version; the latest release
+readiness section states the remaining gates.
 
 ## On the TV
 
@@ -259,3 +261,59 @@ cancellations, repeated selection, changing launch capability, app-service error
 missing app and unavailable-device timeouts, and a generic player without wake.
 The timeout cases shorten the deadline; the slow-start case really waits beyond
 the previous five-second expiry. Physical device behavior needs a separate test.
+
+## Sources reconnect and local ordering (0.6.0-dev12)
+
+175 Python checks include execution of the browser's local order model with Node
+when available. The model verifies per-list isolation, invalid moves, returning
+to the original order, and reconciliation after uncertain writes or changed
+TV identity, revision and catalog.
+
+Browser verification used a local simulated TV and no household commands:
+returning-user Connect/Try again, heading focus, first-time empty states, working
+sources while button reception is paused, local moves and Cancel with zero writes,
+one Save for multiple moves, independent MUSIC/TV lists, retained drafts after
+refusal, lost-reply recovery without duplicate writes, tab preservation, guarded
+setup changes, and an explicit warning after another tab disables source setup.
+The 390-pixel layout showed no horizontal overflow; movement focus and source
+position announcements were checked in the accessibility tree. This is not a
+claim of full screen-reader or WCAG conformance. The helper and native routing
+are unchanged from the previously verified 0.1.3 version.
+
+## Release readiness (0.6.0-dev12, 31 October 2026)
+
+177 Python regressions pass, including two new persistence checks. Reconstructing
+source management keeps its owner, source IDs, callback capabilities and paused
+HA actions without writes to the TV or HA. Renaming after restart reuses the
+existing capability. Copying gateway source data into a fresh directory also
+retains ownership and the undo journal; restoring the previous source setup
+preserves the action's paused state. These use synthetic external TV/HA state.
+
+The curated source archive was built locally for aarch64 with a fresh official
+base image. The container passed empty/auto/disabled startup, ingress restriction,
+health, graceful shutdown and isolated ADB startup/key reuse. The refreshed full
+image scan, including ADB dependencies, is recorded in the security notes.
+
+An offline container sequence seeded synthetic persisted data using the exact
+0.6.0-dev11 code, then ran dev11, updated to dev12, restarted dev12, and ran dev12
+with a copied app-data backup in a new directory. All four containers passed
+health and clean shutdown. Hash comparisons verified TV selection, source opt-in,
+owner, saved source/callback data, undo journal and both ADB key files remained
+unchanged. Each validation started and stopped an isolated ADB daemon. No
+container had external networking. This proves the tested app-data preservation
+path, not a full Supervisor/HA backup restore or recovery of external TV state.
+
+Earlier hardware evidence for dev10/dev11 includes Apple TV initially off waking
+and opening Netflix, with the picture confirmed by the user, and an already-awake
+repeat launch. That is separate from the final dev12 interface installation test.
+
+Before a Horizon beta release, complete and record:
+
+- The final repository installation through real Supervisor ingress: physical
+  LIGHT learning/saving/execution and source editing, ordering, cancel and restore.
+- Physical TV/gateway/Green restart and temporary network-loss recovery, including
+  source order after the standalone music apps restart.
+- A real Supervisor backup/update/recovery check, and a normal-use observation
+  period of 24–48 hours with standby and reconnection cycles.
+
+Other TV models, CONTROL and continuous dimming remain outside verified support.

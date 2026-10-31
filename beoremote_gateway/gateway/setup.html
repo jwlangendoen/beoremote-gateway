@@ -14,7 +14,7 @@ section { background:var(--card); border:1px solid var(--line); border-radius:12
 button,a.button { border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--text); padding:10px 16px; font:inherit; cursor:pointer; text-decoration:none; }
 button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
 button:disabled { opacity:.55; cursor:default; }
-button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible { outline:3px solid #00a4cf; outline-offset:3px; }
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible,h2[tabindex]:focus-visible { outline:3px solid #00a4cf; outline-offset:3px; }
 a { color:var(--accent); } .actions,.heading { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
 .heading { justify-content:space-between; margin-bottom:12px; } .heading h2 { margin:0; } .heading p { margin:4px 0 0; }
 .product { display:flex; gap:12px; align-items:flex-start; border:1px solid var(--line); border-radius:8px; padding:14px; margin:10px 0; cursor:pointer; }
@@ -32,20 +32,25 @@ input[type=text],select { display:block; width:100%; margin-top:6px; border:1px 
 .rule button { padding:6px 12px; font-size:14px; } #saved { padding:12px; background:color-mix(in srgb,var(--accent) 8%,var(--card)); border-radius:8px; }
 .source-choice { display:flex; gap:10px; align-items:center; cursor:pointer; } .source-choice input { accent-color:var(--accent); width:18px; height:18px; }
 #source-steps { margin-top:20px; border-top:1px solid var(--line); padding-top:20px; } #source-note { margin-top:12px; }
+#source-note:empty,#source-config-note:empty { display:none; }
 #source-steps h3 { font-size:18px; margin:0 0 12px; } #source-steps details { margin-bottom:16px; }
 #source-apps { list-style:none; padding:0; margin:16px 0; } #source-apps li { border-top:1px solid var(--line); padding:10px 0; overflow-wrap:anywhere; }
 #source-apps strong,#source-apps small { display:block; }
+.source-list { list-style:none; padding:0; margin:0; } .source-list li { margin:0; }
+.source-list-heading { margin-top:22px; } .source-list-heading h3 { margin:0; font-size:18px; }
+.source-row p { margin:3px 0 0; } .source-order-controls { margin:14px 0 22px; }
+.source-order-controls p { margin-bottom:10px; } .source-order-error { color:#a33f17; }
 ol { padding-left:23px; } li { margin:7px 0; } details { margin-top:16px; } summary { cursor:pointer; }
 .help { margin-top:24px; } .help details { padding-top:16px; border-top:1px solid var(--line); } details p,details ol { margin-top:12px; }
 code { font-size:13px; overflow-wrap:anywhere; } [hidden] { display:none !important; }
 dialog { width:min(520px,calc(100% - 32px)); max-height:90dvh; padding:24px; border:1px solid var(--line); border-radius:12px; background:var(--card); color:var(--text); }
 dialog::backdrop { background:#0006; } #learn-note { margin-bottom:16px; } #dialog-error { color:#a33f17; }
-@media(prefers-color-scheme:dark) { :root { --bg:#10191e; --card:#1a272e; --text:#e5edf0; --muted:#a7bac4; --line:#35464f; --accent:#70d4ee; } button.primary { color:#10242d; } #notice,#action-note,#dialog-error { color:#ffb18e; } }
+@media(prefers-color-scheme:dark) { :root { --bg:#10191e; --card:#1a272e; --text:#e5edf0; --muted:#a7bac4; --line:#35464f; --accent:#70d4ee; } button.primary { color:#10242d; } #notice,#action-note,#dialog-error,.source-order-error { color:#ffb18e; } }
 @media(max-width:520px) { main { margin:24px auto; padding:0 16px 24px; } section,dialog { padding:20px; } h1 { font-size:26px; } }
 </style>
 <main>
   <h1>Beoremote Gateway</h1>
-  <p class="muted">Use your Beoremote to control Home Assistant.</p>
+  <p class="muted">Control Home Assistant with your Beoremote One BT through an Android-based Beovision TV. Currently tested with Beovision Horizon.</p>
   <p id="notice" role="alert" hidden></p>
   <nav role="tablist" aria-label="Gateway settings" class="tabs">
     <button id="tab-light" role="tab" aria-controls="panel-light" aria-selected="true" type="button">Light</button>
@@ -58,25 +63,71 @@ dialog::backdrop { background:#0006; } #learn-note { margin-bottom:16px; } #dial
     <div class="heading"><h2 id="actions-title">Light settings</h2><button id="add" class="primary" type="button" disabled>Add a button</button></div>
     <p class="muted">Choose what happens in Home Assistant when you press a LIGHT button.</p>
     <p id="action-note" role="status"></p>
+    <button id="light-connection-help" type="button" data-open-configuration hidden>Open Configuration</button>
     <p id="saved" role="status" hidden></p>
     <p id="empty" class="muted" hidden>Add a button to run a scene, a script or another Home Assistant action.</p>
     <div id="rules"></div>
     <button id="reload-actions" type="button" disabled>Refresh</button>
   </section>
+  <div class="help" id="light-help" hidden>
+    <details id="remote-help">
+      <summary>No button received?</summary>
+      <p>Turn on your TV. On your Beoremote One BT, open <strong>LIST → LIGHT</strong> and press a function. If it arrives in the app, no TV menu changes are needed.</p>
+      <p>For Beovision Horizon, select the gateway on the TV:</p>
+      <ol>
+        <li>Open <strong>MENU → Settings</strong>.</li>
+        <li>Highlight <strong>Service Menu</strong> and press the <strong>red button before the centre button</strong>.</li>
+        <li>Open <strong>Customer Service Menu → Settings → BeoLink Gateway</strong>.</li>
+        <li>Select <strong id="gateway-name">Home Assistant Gateway</strong> and confirm with the centre button.</li>
+      </ol>
+      <p class="muted">If the gateway is missing, check the chosen TV in Configuration, then reopen the TV's gateway list.</p>
+      <button type="button" data-open-configuration>Open Configuration</button>
+    </details>
+    <details>
+      <summary>Rename LIGHT functions on the remote</summary>
+      <ol>
+        <li>Open <strong>LIST → Settings → Advanced → Products</strong>. Show or add the separate <strong>Beovision (infrared/IR)</strong> profile.</li>
+        <li>Select that <strong>Beovision</strong> product at the top of LIST.</li>
+        <li>Open <strong>Settings → Advanced → Light menu → Rename</strong>. Show and Move control visibility and order.</li>
+        <li>Switch back to your Bluetooth-paired TV.</li>
+      </ol>
+      <p class="muted">Keep your TV pairing. Names on the remote and in this app are set separately.</p>
+    </details>
+    <details>
+      <summary>LIGHT actions in Home Assistant</summary>
+      <p>Each button uses a normal Home Assistant automation. Open it in Home Assistant for any action or condition. Changes made there stay there; this app won't overwrite them.</p>
+      <p>Disable any older automation for the same button to avoid running both.</p>
+      <a href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fjwlangendoen%2Fbeoremote-gateway%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fbeoremote_light_action.yaml" target="_blank" rel="noopener noreferrer">Import blueprint</a>
+    </details>
+  </div>
   </div>
   <div id="panel-sources" role="tabpanel" aria-labelledby="tab-sources" hidden>
   <p id="source-note" class="muted" role="status"></p>
   <section id="sources-empty" hidden><h2>Connect your TV first</h2><p class="muted">Choose your TV in Configuration to set up MUSIC and TV sources.</p><button class="primary" type="button" data-open-configuration>Open Configuration</button></section>
   <section id="sources-section" aria-labelledby="sources-title" hidden>
-    <div class="heading"><h2 id="sources-title">Sources</h2><span class="badge">Experimental</span></div>
+    <div class="heading"><h2 id="sources-title" tabindex="-1">Sources</h2><span class="badge">Experimental</span></div>
     <p class="muted">Add shortcuts under MUSIC or TV on your remote. Open a local app, an HDMI input or an app on a connected device.</p>
-    <div id="source-config-prompt"><p id="source-config-prompt-text">Set up TV Support in Configuration to add and manage sources.</p><button type="button" data-open-configuration>Open Configuration</button></div>
+    <p id="source-tv" class="muted" role="status" hidden></p>
+    <div id="source-config-prompt"><p id="source-config-prompt-text">Set up sources in Configuration.</p><div class="actions"><button id="source-connect-here" class="primary" type="button" hidden>Connect</button><button id="source-configure" type="button" data-open-configuration>Open Configuration</button></div></div>
       <div id="source-editor" hidden>
         <div class="heading"><h3>Your sources</h3><button id="source-add" type="button" class="primary">Add a source</button></div>
-        <p class="muted">Move sources up or down to change their order on the remote. Saving and moving sources do not open them.</p>
+        <p class="muted">Choose Reorder to change the order on your remote.</p>
         <div id="source-rows"></div>
         <p id="source-slots" class="muted"></p>
         <div class="actions"><button id="source-refresh" type="button">Refresh sources</button><button id="source-restore" type="button" hidden>Restore previous setup</button></div>
+        <div class="help">
+          <details>
+            <summary>Source actions in Home Assistant</summary>
+            <p>When adding or changing a shortcut, you can also link a scene, lights or a script. Choose in Home Assistant lets you add any action or condition in its automation editor.</p>
+            <p>Apps on connected devices, such as Apple TV, need that device's integration in Home Assistant. Opening a local TV app or HDMI input does not need a Home Assistant action.</p>
+            <p>Save source adds or updates the shortcut without opening it. Test on TV selects the source and can run its linked action.</p>
+          </details>
+          <details>
+            <summary>Reordering and restoring sources</summary>
+            <p>Reorder changes a local preview of one list. Save TV order or Save MUSIC order applies it to the remote; Cancel discards that edit. Moving sources does not open them.</p>
+            <p>Restore previous setup restores the source list, order and unchanged linked automations from before the last saved change. Later changes made in Home Assistant are kept.</p>
+          </details>
+        </div>
       </div>
   </section>
   </div>
@@ -87,7 +138,7 @@ dialog::backdrop { background:#0006; } #learn-note { margin-bottom:16px; } #dial
       <button id="change-tv" type="button" hidden>Change TV</button>
     </div>
     <p id="connection" class="muted" hidden></p>
-    <p id="manual" hidden>For automatic setup, set Mode to auto in the app's Configuration tab and restart.</p>
+    <p id="manual" hidden>For automatic setup, set Mode to auto in the Home Assistant app's Configuration tab (outside this gateway UI) and restart.</p>
     <button id="resume" type="button" hidden>Resume button reception</button>
     <div id="chooser" hidden>
       <button id="scan" type="button">Find my TV</button>
@@ -127,39 +178,11 @@ dialog::backdrop { background:#0006; } #learn-note { margin-bottom:16px; } #dial
     </div>
   </section>
   <div class="help" id="setup-help" hidden>
-    <details id="remote-help">
-      <summary>No button received?</summary>
-      <p>Turn on your TV. On the Beoremote, open <strong>LIST → LIGHT</strong> and press a function. If it arrives in the app, no TV menu changes are needed.</p>
-      <p>For Beovision Horizon, select the gateway on the TV:</p>
-      <ol>
-        <li>Open <strong>MENU → Settings</strong>.</li>
-        <li>Highlight <strong>Service Menu</strong> and press the <strong>red button before the centre button</strong>.</li>
-        <li>Open <strong>Customer Service Menu → Settings → BeoLink Gateway</strong>.</li>
-        <li>Select <strong id="gateway-name">Home Assistant Gateway</strong> and confirm with the centre button.</li>
-      </ol>
-      <p class="muted">If the gateway is missing, choose your TV in this app, then reopen the TV's gateway list.</p>
-    </details>
-    <details>
-      <summary>Rename LIGHT functions on the remote</summary>
-      <ol>
-        <li>Open <strong>LIST → Settings → Advanced → Products</strong>. Show or add the separate <strong>Beovision (infrared/IR)</strong> profile.</li>
-        <li>Select that <strong>Beovision</strong> product at the top of LIST.</li>
-        <li>Open <strong>Settings → Advanced → Light menu → Rename</strong>. Show and Move control visibility and order.</li>
-        <li>Switch back to your Bluetooth-paired TV.</li>
-      </ol>
-      <p class="muted">Keep your TV pairing. Names on the remote and in this app are set separately.</p>
-    </details>
     <details>
       <summary>Connection settings</summary>
       <p><code id="details"></code></p>
       <div class="actions"><button id="pause" type="button" hidden>Pause button reception</button><button id="copy" type="button" disabled>Copy TV identity</button><small id="copied" aria-live="polite"></small></div>
-      <p class="muted">To change the name in the TV menu, use Name in the TV menu in the app's optional Configuration settings.</p>
-    </details>
-    <details>
-      <summary>Automations and advanced setup</summary>
-      <p>Each button uses a normal Home Assistant automation. Open it in Home Assistant for any action or condition. Changes made there stay there; this app won't overwrite them.</p>
-      <p>Disable any older automation for the same button to avoid running both.</p>
-      <a href="https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fjwlangendoen%2Fbeoremote-gateway%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Fbeoremote_light_action.yaml" target="_blank" rel="noopener noreferrer">Import blueprint</a>
+      <p class="muted">To change the name in the TV menu, use Name in the TV menu in the Home Assistant app’s Configuration tab (outside this gateway UI).</p>
     </details>
   </div>
   </div>
@@ -206,11 +229,35 @@ const token = __TOKEN_JSON__;
 const el = id => document.getElementById(id);
 let status=null, selected='', busy=false, copyValue='', choosing=false, refreshing=false;
 let actionBusy=false, loadedTV='', learningID='', targets={scenes:[],lights:[],scripts:[]}, editing=null, rules=[], known=null;
-let sourceBusy=false, sourceSaving=false, sourceTV='', sourceHelper=null, sourceEditing=null, sourceConnected=false, sourceRendered='', sourceTargets={scenes:[],lights:[],scripts:[]};
+let sourceBusy=false, sourceSaving=false, sourceTV='', sourceWasEnabled=false, sourceHelper=null, sourceEditing=null, sourceConnected=false, sourceConnectError=false, sourceRendered='', sourceOrderDraft=null, sourceTargets={scenes:[],lights:[],scripts:[]};
+// source-order-model:start
+class SourceOrderDraft {
+  constructor(tv,helper,group) {
+    this.tv=tv;this.revision=helper.revision || '';this.group=group;
+    this.original=this.observed(helper);this.ids=[...this.original];this.catalog=this.catalogue(helper);this.needsRefresh=false;this.error='';
+  }
+  catalogue(helper) { return JSON.stringify((helper.catalog || helper.entries || []).map(row=>[row.source_list || 'tv',row.id])); }
+  observed(helper) { return (helper.catalog || helper.entries || []).filter(row=>(row.source_list || 'tv')===this.group).map(row=>row.id); }
+  get dirty() { return JSON.stringify(this.ids)!==JSON.stringify(this.original); }
+  move(id,delta) {
+    const index=this.ids.indexOf(id), next=index+delta;
+    if(this.needsRefresh || ![-1,1].includes(delta) || index<0 || next<0 || next>=this.ids.length)return false;
+    [this.ids[index],this.ids[next]]=[this.ids[next],this.ids[index]];return true;
+  }
+  reconcile(tv,helper) {
+    if(tv!==this.tv)return 'changed';
+    const observed=JSON.stringify(this.observed(helper));
+    if(this.dirty && observed===JSON.stringify(this.ids))return 'saved';
+    if((helper.revision || '')!==this.revision || observed!==JSON.stringify(this.original) || this.catalogue(helper)!==this.catalog)return 'changed';
+    this.needsRefresh=false;this.error='';return 'retained';
+  }
+}
+// source-order-model:end
 const tabNames=['light','sources','configuration'];
 let activeTab=tabNames.includes(location.hash.slice(1))?location.hash.slice(1):'';
 function showTab(name,focus=false) {
   activeTab=name;
+  if(location.hash!=='#'+name)history.replaceState(null,'','#'+name);
   for(const item of tabNames){const selected=item===name;el('tab-'+item).setAttribute('aria-selected',String(selected));el('tab-'+item).tabIndex=selected?0:-1;el('panel-'+item).hidden=!selected;}
   if(focus)el('tab-'+name).focus();
 }
@@ -224,6 +271,7 @@ for(const [index,name] of tabNames.entries()){
 for(const button of document.querySelectorAll('[data-open-configuration]'))button.addEventListener('click',()=>showTab('configuration',true));
 el('source-go-sources').addEventListener('click',()=>showTab('sources',true));
 if(activeTab)showTab(activeTab);
+window.addEventListener('beforeunload',event=>{if(sourceOrderDraft?.dirty){event.preventDefault();event.returnValue='';}});
 function actionNotice(text) { el('action-note').textContent=text; }
 function dialogError(text='') { el('dialog-error').textContent=text; el('dialog-error').hidden=!text; }
 function actionReady(data) { return data?.runtime?.listener && data.runtime.ha.delivery!=='disabled'; }
@@ -339,7 +387,7 @@ function show(data) {
   el('manual').hidden=automatic; el('chooser').hidden=!automatic || !choosing;
   el('change-tv').hidden=!automatic || !hasTV || choosing;
   el('close-chooser').hidden=!hasTV;
-  const labels={choose_tv:'Turn on your TV to find it.',active:data.runtime.peers?'Connected':'Waiting for TV',waiting:'Waiting for TV',paused:'Button reception paused',disabled:'Gateway disabled',error:'Needs attention',listen:'Manual setup',advertise:'Manual setup'};
+  const labels={choose_tv:'Turn on your TV to find it.',active:data.runtime.peers?'Remote buttons connected':'Waiting for TV',waiting:'Waiting for TV',paused:'Button reception paused',disabled:'Gateway disabled',error:'Needs attention',listen:'Manual setup',advertise:'Manual setup'};
   el('state').textContent=labels[data.state] || data.state;
   el('connection-title').textContent=data.selection?.name || (hasTV?'Your TV':'Choose your TV');
   el('gateway-name').textContent=data.gateway_name;
@@ -350,12 +398,13 @@ function show(data) {
   el('light-empty').hidden=hasTV;el('sources-empty').hidden=hasTV;
   el('source-configuration').hidden=!hasTV;
   el('actions-section').hidden=!hasTV;
-  el('setup-help').hidden=!hasTV;
+  el('setup-help').hidden=!hasTV;el('light-help').hidden=!hasTV;
+  el('light-connection-help').hidden=!hasTV || actionReady(data);
   copyValue=data.tv_jid || ''; el('copy').disabled=!copyValue;
   el('details').textContent=[copyValue,data.addresses?.tv?'TV: '+data.addresses.tv:'',data.addresses?.gateway?'Gateway: '+data.addresses.gateway:''].filter(Boolean).join(' · ');
   if(!actionReady(data)) {
     loadedTV=''; rules=[]; closePanel(); el('rules').replaceChildren();el('empty').hidden=true;
-    actionNotice(!hasTV?'Choose your TV first.':data.state==='paused'?'Resume button reception to add or change actions.':data.state==='disabled'?'Enable the gateway in the app configuration to set up buttons.':data.state==='error'?'Check the connection message above.':'Connecting to your TV…');
+    actionNotice(!hasTV?'Choose your TV first.':data.state==='paused'?'Resume button reception in Configuration to add or change actions.':data.state==='disabled'?'Enable the gateway in the Home Assistant app settings to set up buttons.':data.state==='error'?'Check the TV connection in Configuration.':'Connecting to your TV…');
   } else {
     if(!loadedTV)actionNotice('Loading button actions…');
     if(loadedTV && loadedTV!==data.tv_jid){loadedTV='';rules=[];closePanel();el('rules').replaceChildren();}
@@ -366,11 +415,9 @@ function show(data) {
   if(data.error)notice(data.error);else if(previousError)notice();
 }
 function showSourceEditor() {
-  const renderKey=JSON.stringify([sourceHelper,sourceBusy,sourceSaving]);
+  const renderKey=JSON.stringify([sourceHelper,sourceBusy,sourceSaving,sourceConnected,sourceOrderDraft]);
   if(renderKey===sourceRendered)return;sourceRendered=renderKey;
-  const ready=!!sourceHelper && ['ready','attention'].includes(sourceHelper.state);
-  el('source-editor').hidden=!ready;
-  el('source-config-prompt').hidden=ready;
+  const ready=sourceConnected && !!sourceHelper && ['ready','attention'].includes(sourceHelper.state);
   const upgrade=!!sourceHelper && (!(sourceHelper.source_lists || []).includes('music') || !sourceHelper.source_order || !sourceHelper.source_cancel);
   el('source-install').hidden=!!sourceHelper && !upgrade && !(sourceHelper.legacy_sources>0);
   el('source-install-button').textContent=upgrade?'Update TV Support':'Install TV Support';
@@ -381,63 +428,146 @@ function showSourceEditor() {
   if(!sourceHelper)return;
   const free=(sourceHelper.slots || []).filter(slot=>slot.free).length;
   el('source-slots').textContent=free+' more '+(free===1?'source can':'sources can')+' be added.';
-  el('source-add').disabled=sourceBusy || sourceHelper.state!=='ready' || free===0;
+  el('source-add').disabled=sourceBusy || !ready || sourceHelper.state!=='ready' || free===0 || !!sourceOrderDraft;
   el('source-restore').hidden=!sourceHelper.can_restore;
   const entries=sourceHelper.entries || [], catalog=sourceHelper.catalog || entries;
   for(const group of ['tv','music']) {
-    const items=catalog.filter(row=>(row.source_list || 'tv')===group);
+    const baseline=catalog.filter(row=>(row.source_list || 'tv')===group), editing=sourceOrderDraft?.group===group;
+    const items=editing?sourceOrderDraft.ids.map(id=>baseline.find(row=>row.id===id)).filter(Boolean):baseline;
     if(!items.length)continue;
-    const heading=document.createElement('h3');heading.textContent=group.toUpperCase();el('source-rows').append(heading);
+    const heading=document.createElement('div');heading.className='heading source-list-heading';
+    const title=document.createElement('h3');title.textContent=group.toUpperCase();heading.append(title);
+    if(editing){const badge=document.createElement('span');badge.className='badge';badge.textContent='Editing order';heading.append(badge);}
+    else {
+      const reorder=document.createElement('button');reorder.type='button';reorder.textContent='Reorder';reorder.id='source-reorder-'+group;
+      reorder.setAttribute('aria-label','Reorder '+group.toUpperCase()+' sources');
+      reorder.disabled=sourceBusy || !ready || sourceHelper.state!=='ready' || !sourceHelper.source_order || !!sourceOrderDraft || items.length<2;
+      reorder.addEventListener('click',()=>{
+        sourceOrderDraft=new SourceOrderDraft(sourceTV,sourceHelper,group);showSources(status);
+        sourceNotice('Arrange '+group.toUpperCase()+' sources. Changes apply when you save.');
+        el('source-rows').querySelector('[data-move-id]:not(:disabled)')?.focus();
+      });heading.append(reorder);
+    }
+    const list=document.createElement('ol');list.className='source-list';list.setAttribute('role','list');list.setAttribute('aria-label',group.toUpperCase()+' sources');
+    el('source-rows').append(heading,list);
     for(const [index,item] of items.entries()) {
-      const row=entries.find(entry=>entry.id===item.id),card=document.createElement('div');card.className='rule';
+      const row=entries.find(entry=>entry.id===item.id),card=document.createElement('li');card.className='rule source-row';
       const name=document.createElement('strong');name.textContent=row?.name || item.name;
       const detail=document.createElement('p');detail.className='muted';
       const target=(sourceHelper.apps || []).find(app=>app.package===row?.target) || (sourceHelper.inputs || []).find(input=>input.id===row?.target);
       detail.textContent=row?(row.kind==='app'?'TV app: ':'Input: ')+(target?.name || row.target)+(row.launch_source?' · '+row.launch_source:'')+(row.action_kind!=='none'?' · Home Assistant action':''):'On your TV';
       const buttons=document.createElement('div');buttons.className='actions';
-      for(const [label,delta] of [['Move up',-1],['Move down',1]]) {
+      if(editing)for(const [label,delta] of [['Move up',-1],['Move down',1]]) {
         const button=document.createElement('button');button.type='button';button.textContent=label;button.setAttribute('aria-label',label+' '+name.textContent);
-        button.dataset.moveId=item.id;button.disabled=sourceBusy || sourceHelper.state!=='ready' || !sourceHelper.source_order || index+delta<0 || index+delta>=items.length;
-        button.addEventListener('click',async()=>{
-          const ids=items.map(source=>source.id);[ids[index],ids[index+delta]]=[ids[index+delta],ids[index]];
-          await sourceTask('reorder',{revision:sourceHelper.revision || '',source_list:group,ids});
-          const focus=Array.from(el('source-rows').querySelectorAll('[data-move-id]')).find(control=>control.dataset.moveId===item.id && !control.disabled);focus?.focus();
+        button.dataset.moveId=item.id;button.dataset.moveDelta=String(delta);button.disabled=sourceBusy || sourceOrderDraft.needsRefresh || index+delta<0 || index+delta>=items.length;
+        button.addEventListener('click',()=>{
+          if(!sourceOrderDraft.move(item.id,delta))return;
+          const position=sourceOrderDraft.ids.indexOf(item.id)+1;showSources(status);
+          const controls=Array.from(el('source-rows').querySelectorAll('[data-move-id]')).filter(control=>control.dataset.moveId===item.id && !control.disabled);
+          (controls.find(control=>control.dataset.moveDelta===String(delta)) || controls[0] || el('source-order-cancel')).focus();
+          sourceNotice(name.textContent+' moved to position '+position+' of '+items.length+' in '+group.toUpperCase()+'. Not saved.');
         });buttons.append(button);
       }
-      if(row) {
+      if(row && !sourceOrderDraft) {
         for(const [label,handler] of [['Change',()=>openSource(row)],['Test on TV',()=>sourceTask('test',{id:row.id})],['Remove',()=>{if(confirm('Remove “'+row.name+'” from the source list?'))sourceTask('remove',{revision:sourceHelper.revision || '',id:row.id});}]]){
           const button=document.createElement('button');button.type='button';button.textContent=label;button.setAttribute('aria-label',label+' '+row.name);button.disabled=sourceBusy;button.addEventListener('click',handler);buttons.append(button);
         }
         if(row.edit_path){const link=document.createElement('a');link.textContent='Open in Home Assistant';link.href=row.edit_path;link.target='_top';link.setAttribute('aria-label','Open in Home Assistant for '+row.name);buttons.append(link);}
       }
-      card.append(name,detail,buttons);el('source-rows').append(card);
+      card.append(name,detail);if(buttons.childElementCount)card.append(buttons);list.append(card);
     }
+    if(editing) {
+      const controls=document.createElement('div');controls.className='source-order-controls';
+      const message=document.createElement('p');message.className='muted';
+      message.textContent=sourceOrderDraft.dirty?'Unsaved '+group.toUpperCase()+' order. Changes apply when you save.':'Move sources up or down, then save the new order.';
+      controls.append(message);
+      if(sourceOrderDraft.error){const error=document.createElement('p');error.className='source-order-error';error.setAttribute('role','alert');error.textContent=sourceOrderDraft.error;controls.append(error);}
+      const actions=document.createElement('div');actions.className='actions';
+      const save=document.createElement('button');save.id='source-order-save';save.type='button';save.className='primary';
+      save.textContent=sourceBusy && !sourceOrderDraft.needsRefresh?'Saving…':'Save '+group.toUpperCase()+' order';save.disabled=sourceBusy || !sourceOrderDraft.dirty || sourceOrderDraft.needsRefresh;
+      save.addEventListener('click',saveSourceOrder);
+      const cancel=document.createElement('button');cancel.id='source-order-cancel';cancel.type='button';cancel.textContent='Cancel';cancel.disabled=sourceBusy;
+      cancel.addEventListener('click',()=>{
+        const uncertain=sourceOrderDraft.needsRefresh;sourceOrderDraft=null;
+        if(uncertain){sourceConnected=false;sourceConnectError=true;}
+        showSources(status);sourceNotice(uncertain?'Order edit closed. Connect again to check the order on your TV.':'Order edit cancelled.');
+        (uncertain?el('source-connect-here'):el('source-reorder-'+group))?.focus();
+      });
+      actions.append(save,cancel);
+      if(sourceOrderDraft.needsRefresh){const check=document.createElement('button');check.id='source-order-check';check.type='button';check.textContent=sourceBusy?'Checking…':'Check TV order';check.disabled=sourceBusy;check.addEventListener('click',()=>sourceTask('refresh',{},true));actions.prepend(check);}
+      controls.append(actions);el('source-rows').append(controls);
+    }
+  }
+}
+function sourceOrderGuard() {
+  if(!sourceOrderDraft)return false;
+  showTab('sources',true);sourceNotice('Save or cancel the '+sourceOrderDraft.group.toUpperCase()+' order before changing source setup.');
+  el('source-order-cancel')?.focus();return true;
+}
+function acceptSourceHelper(result) {
+  let reconciliation='';
+  if(sourceOrderDraft){reconciliation=sourceOrderDraft.reconcile(sourceTV,result);if(reconciliation!=='retained')sourceOrderDraft=null;}
+  sourceHelper=result;sourceConnected=true;return reconciliation;
+}
+function sourceOrderError(message) {
+  if(message==='The order was not confirmed. Refresh or restore the previous setup before continuing.')return 'The TV did not confirm this save. Choose Check TV order before trying again.';
+  return message==='Switch to another source, then refresh sources before moving the source that is playing.'?'Switch to another source on your TV, then choose Check TV order.':message;
+}
+async function saveSourceOrder() {
+  const draft=sourceOrderDraft;
+  if(!draft || !draft.dirty || draft.needsRefresh || sourceBusy || busy)return;
+  sourceBusy=true;busy=true;sourceNotice('Saving '+draft.group.toUpperCase()+' order…');showSources(status);
+  try {
+    const result=await api('api/sources/reorder',{tv_jid:draft.tv,revision:draft.revision,source_list:draft.group,ids:[...draft.ids]});
+    if(sourceTV===draft.tv){sourceHelper=result;sourceConnected=true;sourceOrderDraft=null;sourceNotice(draft.group.toUpperCase()+' order saved.');}
+  } catch(error) {
+    if(sourceOrderDraft===draft){draft.needsRefresh=true;draft.error=sourceOrderError(error.message);sourceNotice('The TV has not confirmed the order. Check TV order before saving again.');}
+  } finally {
+    sourceBusy=false;busy=false;showSources(status);
+    if(sourceOrderDraft?.needsRefresh)el('source-order-check')?.focus();else if(!sourceOrderDraft)el('source-reorder-'+draft.group)?.focus();
   }
 }
 function showSources(data) {
   const enabled=!!data.sources?.enabled, pending=sourceBusy || sourceSaving;
+  if(sourceTV!==data.tv_jid || sourceWasEnabled!==enabled){
+    const discarded=sourceOrderDraft?.dirty;
+    if(el('source-panel').open)el('source-panel').close();sourceTV=data.tv_jid;sourceWasEnabled=enabled;sourceHelper=null;sourceConnected=false;sourceConnectError=false;sourceOrderDraft=null;sourceRendered='';el('source-install').hidden=true;el('source-ready').hidden=true;
+    sourceNotice(discarded?'TV setup changed. Your unsaved order was discarded.':data.sources?.error || '');
+  }
+  const ready=sourceConnected && !!sourceHelper && ['ready','attention'].includes(sourceHelper.state), reconnect=enabled && !sourceConnected;
   el('sources-section').hidden=!data.tv_jid;
-  el('source-config-prompt-text').textContent=enabled?'Connect to your TV in Configuration to load its sources.':'Set up TV Support in Configuration to add and manage sources.';
+  el('source-editor').hidden=!ready;el('source-config-prompt').hidden=ready;
+  el('source-config-prompt-text').textContent=reconnect?'Connect to '+(data.selection?.name || 'your TV')+' to load its sources.':enabled?'Finish source setup in Configuration to manage your sources.':'Set up sources in Configuration to manage MUSIC and TV sources.';
+  el('source-connect-here').hidden=!reconnect;el('source-connect-here').disabled=pending;
+  el('source-connect-here').textContent=pending?'Connecting…':sourceConnectError?'Try again':'Connect';
+  el('source-configure').hidden=reconnect && !sourceConnectError;el('source-configure').textContent=sourceConnectError?'Connection help':'Open Configuration';
+  el('source-tv').hidden=!ready;el('source-tv').textContent='Sources connected to '+(data.selection?.name || 'your TV')+'.';
   if(!sourceSaving)el('sources-enabled').checked=enabled;
   el('sources-enabled').disabled=pending;el('source-steps').hidden=!enabled;
   el('source-connect').hidden=!!sourceHelper && sourceConnected;
-  for(const id of ['source-inspect','source-install-button','source-refresh','source-restore','source-save','source-cancel'])el(id).disabled=pending;
+  for(const id of ['source-inspect','source-install-button','source-refresh','source-restore'])el(id).disabled=pending || !!sourceOrderDraft;
+  for(const id of ['source-save','source-cancel'])el(id).disabled=pending;
+  el('source-refresh').title=sourceOrderDraft?'Save or cancel the order before refreshing.':'';
   el('source-inspect').textContent=sourceBusy?'Working…':'Connect to TV';
   for(const id of ['change-tv','select','pause','resume'])el(id).disabled=pending || (id==='select' && !selected);
-  if(sourceTV!==data.tv_jid || !enabled){if(el('source-panel').open)el('source-panel').close();sourceTV=data.tv_jid;sourceHelper=null;sourceConnected=false;sourceRendered='';el('source-install').hidden=true;el('source-ready').hidden=true;el('source-editor').hidden=true;el('source-config-prompt').hidden=false;sourceNotice(data.sources?.error || '');}
-  else if(sourceHelper)showSourceEditor();
+  if(sourceHelper)showSourceEditor();
   actionControls();
 }
-async function sourceTask(operation,body) {
+async function sourceTask(operation,body,checkingOrder=false) {
+  if(sourceOrderDraft && !checkingOrder){sourceOrderGuard();return;}
+  const checkedGroup=checkingOrder?sourceOrderDraft?.group:null;
   if(sourceBusy || busy)return;sourceBusy=true;busy=true;showSources(status);notice();
   sourceNotice(operation==='install'?'Installing TV Support…':operation==='test'?'Selecting the source on your TV…':'Updating sources…');
   try {
     const result=await api('api/sources/'+operation,{tv_jid:status.tv_jid,...body});sourceConnected=true;
     if(operation==='test')sourceNotice('Test sent. Check the picture and controls on your TV.');
-    else {sourceHelper=result;sourceNotice(result.error || (operation==='save'?'Source saved.':operation==='remove'?'Source removed.':operation==='restore'?'Previous setup restored.':operation==='reorder'?'Source order saved.':'TV Support is ready.'));}
+    else {
+      const reconciled=acceptSourceHelper(result);
+      sourceNotice(reconciled==='saved'?'The TV already has your chosen order.':reconciled==='changed'?'The TV source list changed. Its current order is shown; choose Reorder to start again.':reconciled==='retained'?'TV order checked. Your unsaved order is kept.':result.error || (operation==='save'?'Source saved.':operation==='remove'?'Source removed.':operation==='restore'?'Previous setup restored.':'Sources refreshed.'));
+    }
     if(operation==='save')el('source-panel').close();
-  } catch(error){sourceConnected=false;sourceNotice(error.message);if(el('source-panel').open){el('source-form-error').textContent=error.message;el('source-form-error').hidden=false;}}
-  finally{sourceBusy=false;busy=false;showSources(status);}
+  } catch(error){if(checkingOrder && sourceOrderDraft){sourceOrderDraft.error=error.message;sourceOrderDraft.needsRefresh=true;}else sourceConnected=false;sourceNotice(error.message);if(el('source-panel').open){el('source-form-error').textContent=error.message;el('source-form-error').hidden=false;}}
+  finally{sourceBusy=false;busy=false;showSources(status);if(checkedGroup)(sourceOrderDraft?(el('source-order-check') || (!el('source-order-save').disabled?el('source-order-save'):el('source-order-cancel'))):el('source-reorder-'+checkedGroup))?.focus();}
 }
 function sourceNotice(text='') { for(const id of ['source-note','source-config-note'])el(id).textContent=text; }
 function sourceOptions(id,items,value) {
@@ -460,7 +590,7 @@ function sourceAction(value) {
   sourceOptions('source-ha-target',sourceTargets[group] || [],value);
 }
 async function openSource(row=null) {
-  if(sourceBusy || busy)return;
+  if(sourceOrderGuard() || sourceBusy || busy)return;
   try {sourceTargets=await api('api/sources/targets',{tv_jid:status.tv_jid});sourceEditing=row;
     el('source-form-title').textContent=row?'Change source':'Add a source';el('source-form-error').hidden=true;
     el('source-name').value=row?.name || '';el('source-list').value=row?.source_list || 'tv';
@@ -471,17 +601,20 @@ async function openSource(row=null) {
   }catch(error){sourceNotice(error.message);}
 }
 el('sources-enabled').addEventListener('change',async()=>{
+  if(sourceOrderGuard()){showSources(status);return;}
   if(sourceBusy || sourceSaving || busy){showSources(status);return;}const enabled=el('sources-enabled').checked;sourceSaving=true;busy=true;showSources(status);
   try{status.sources=await api('api/sources/options',{enabled});}catch(error){notice(error.message);}finally{sourceSaving=false;busy=false;showSources(status);}
 });
-el('source-inspect').addEventListener('click',async()=>{
-  if(sourceBusy || busy)return;sourceBusy=true;busy=true;showSources(status);sourceNotice('Checking your TV. Allow the debugging connection on the TV if asked.');
+async function connectSources() {
+  if(sourceOrderGuard() || sourceBusy || busy)return;sourceBusy=true;busy=true;sourceConnectError=false;showSources(status);sourceNotice('Connecting to your TV…');
   try{const result=await api('api/sources/inventory',{});if(result.tv_jid!==status.tv_jid)throw new Error('The TV selection changed. Connect again.');
-    if(result.state==='authorization_required')sourceNotice('Allow debugging on the TV, then click Connect to TV again.');
-    else if(result.state!=='connected')sourceNotice('Could not connect. Check network debugging on the TV, then try again.');
-    else{sourceConnected=true;sourceHelper=result.helper || null;el('source-install').hidden=false;el('source-retire').dataset.present=result.legacy_installed?'yes':'';el('source-legacy').hidden=!result.legacy_installed;sourceNotice(sourceHelper?.error || (sourceHelper?'TV Support is connected.':'Connected. Install TV Support to add sources.'));}
-  }catch(error){sourceNotice(error.message);}finally{sourceBusy=false;busy=false;showSources(status);}
-});
+    if(result.state==='authorization_required'){sourceConnectError=true;sourceNotice('Allow the debugging connection on your TV, then try again.');}
+    else if(result.state!=='connected'){sourceConnectError=true;sourceNotice('Could not connect. Turn on your TV and check network debugging, then try again.');}
+    else{sourceConnected=true;sourceHelper=result.helper || null;el('source-install').hidden=false;el('source-retire').dataset.present=result.legacy_installed?'yes':'';el('source-legacy').hidden=!result.legacy_installed;sourceNotice(sourceHelper?.error || (sourceHelper?'':'Connected. Finish source setup in Configuration.'));}
+  }catch(error){sourceConnected=false;sourceConnectError=true;sourceNotice(error.message);}finally{sourceBusy=false;busy=false;showSources(status);if(activeTab==='sources'){const focus=sourceConnected?el('sources-title'):el('source-connect-here');if(!focus.hidden && !focus.disabled)focus.focus();}}
+}
+el('source-inspect').addEventListener('click',connectSources);
+el('source-connect-here').addEventListener('click',connectSources);
 el('source-install-button').addEventListener('click',()=>sourceTask('install',{retire_old:el('source-retire').checked}));
 el('source-refresh').addEventListener('click',()=>sourceTask('refresh',{}));
 el('source-restore').addEventListener('click',()=>{if(confirm('Restore the source setup from before the last change?'))sourceTask('restore',{revision:sourceHelper.revision || ''});});
@@ -528,7 +661,7 @@ el('add').addEventListener('click',startLearning);
 el('retry').addEventListener('click',startLearning);
 el('cancel').addEventListener('click',cancelLearning);
 el('learn-panel').addEventListener('cancel',event=>{event.preventDefault();cancelLearning();});
-el('learn-help').addEventListener('click',async()=>{if(await cancelLearning()){showTab('configuration',true);el('remote-help').open=true;el('remote-help').scrollIntoView({block:'center'});el('remote-help').querySelector('summary').focus();}});
+el('learn-help').addEventListener('click',async()=>{if(await cancelLearning()){showTab('light',true);el('remote-help').open=true;el('remote-help').scrollIntoView({block:'center'});el('remote-help').querySelector('summary').focus();}});
 el('edit-known').addEventListener('click',async()=>{const rule=known;if(await cancelLearning())await editRule(rule);});
 el('open-known').addEventListener('click',async event=>{event.preventDefault();const path=known.edit_path;if(await cancelLearning())window.top.location.href=path;});
 el('reload-actions').addEventListener('click',async()=>{if(actionBusy)return;actionBusy=true;actionControls();try{await loadActions();}catch(error){actionNotice(error.message);}finally{actionBusy=false;actionControls();}});
@@ -545,11 +678,11 @@ el('action-form').addEventListener('submit',async event=>{
     el('saved').textContent='Saved “'+saved.name+'”.';el('saved').hidden=false;await loadActions();
   }catch(error){if(el('learn-panel').open)dialogError(error.message);else actionNotice(error.message);}finally{actionBusy=false;actionControls();}
 });
-el('change-tv').addEventListener('click',async()=>{choosing=true;show(status);await scan();});
+el('change-tv').addEventListener('click',async()=>{if(sourceOrderGuard())return;choosing=true;show(status);await scan();});
 el('close-chooser').addEventListener('click',()=>{choosing=false;show(status);});
 el('scan').addEventListener('click',scan);
 el('select').addEventListener('click',async()=>{
-  if(!selected || busy)return;busy=true;el('select').disabled=true;notice();
+  if(sourceOrderGuard() || !selected || busy)return;busy=true;el('select').disabled=true;notice();
   try{const data=await api('api/select',{jid:selected});choosing=false;show(data);}catch(error){notice(error.message);}
   finally{busy=false;el('select').disabled=!selected;}
 });

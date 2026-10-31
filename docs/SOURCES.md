@@ -116,7 +116,15 @@ MUSIC on an older helper and offers an in-place helper update.
 
 TV Support 0.1.2 reports the visible local catalog in native position order.
 The editor groups it into TV and MUSIC, including both existing sources and
-managed shortcuts. A reorder requires a complete current-list permutation,
+managed shortcuts. Returning users connect from Sources; first setup and support
+installation remain in Configuration. Reorder opens a single local list draft.
+Arrows do not contact the TV; the explicit per-list Save sends one permutation,
+and Cancel does not restore or change the TV. Drafts survive tab switches.
+Changing TV/setup is guarded, and external setup changes discard the old draft
+with an explanation. Uncertain saves require readback: an observed matching order
+finishes the edit; an unchanged baseline preserves it; a different TV, revision
+or catalog discards it without rebasing or writing. Ordinary remote-button
+reception may be paused while source management connects and edits. A reorder requires a complete current-list permutation,
 the selected TV, administrator access, page token and current helper revision.
 It neither selects a source nor calls HA actions or rewrites automations.
 
