@@ -160,7 +160,12 @@ public final class SupportService extends Service {
             if(exists){if(getContentResolver().update(SOURCES,v,where,args)!=1)throw new Exception("rename");}
             else{v.put("source_pid",productRow);v.put("source_name",e.source);v.put("source_type",e.firmwareOrdinal);v.put("is_active",0);v.put("is_use",1);v.put("profile","");v.put("source_ir_key",0);v.put("signal_sensed",1);v.put("cp_scheme",8);if(getContentResolver().insert(SOURCES,v)==null)throw new Exception("insert");}changed=true;
         }
-        changed|=ordering.apply(next,activeSource());
+        try{changed|=ordering.apply(next,activeSource());}
+        catch(IllegalStateException error){
+            // Background repair must keep routing available while a source is playing.
+            // Explicit edits still require the active source to keep its position.
+            if(!"active source position".equals(error.getMessage())||!next.optString("revision","").equals(config().optString("revision","")))throw error;
+        }
         if(next.optString("revision","").equals(config().optString("revision","")))ordering.recover(next);
         ControlProvider.write(this,"originals",originals);if(changed||recovered)publish();
     }

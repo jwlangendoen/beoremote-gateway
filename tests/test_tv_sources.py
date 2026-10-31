@@ -244,6 +244,13 @@ class EditorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(status["version"], "0.1.2")
         self.assertEqual(self.editor.status.await_count, 2)
 
+    async def test_previous_ordering_helper_must_be_retired_before_native_reordering(self):
+        original = self.adb.status
+        self.adb.status = lambda: {**original(), "legacy_sources": 8}
+        with self.assertRaisesRegex(ValueError, "previous source helper"):
+            await self.editor.reorder(self.adb, "192.0.2.10", TV, "", "tv", ["HDMI2", "HDMI1"])
+        self.assertFalse(any(method == "apply" for method, _ in self.adb.calls))
+
     async def test_uncertain_order_reply_is_reconciled_or_can_be_restored(self):
         self.adb.failure = "after"
         result = await self.editor.reorder(self.adb, "192.0.2.10", TV, "", "tv", ["HDMI2", "HDMI1"])

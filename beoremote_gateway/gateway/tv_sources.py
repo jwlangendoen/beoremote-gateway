@@ -337,6 +337,8 @@ class TVSources:
             raise ValueError("The TV setup changed or is not ready. Refresh and try again.")
         if status.get("source_order") is not True:
             raise ValueError("Update TV Support in Configuration before changing source order.")
+        if status.get("legacy_sources", 0) > 0:
+            raise ValueError("Replace the previous source helper in Configuration before changing source order.")
         if not isinstance(source_list, str) or source_list not in {"tv", "music"} or not isinstance(ids, list) or len(ids) > 256 or not all(isinstance(i, str) and 1 <= len(i) <= 128 for i in ids):
             raise ValueError("Choose sources from the current MUSIC or TV list.")
         current = [row["id"] for row in status.get("catalog", []) if row.get("source_list") == source_list]

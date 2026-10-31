@@ -113,3 +113,7 @@ recovers to the old order unless the target configuration revision committed.
 Restore previous setup captures both native lists, including before the first
 explicit reorder, and does not read or alter source automations for an order-only
 restore. Uncertain ADB replies are reconciled against the committed revision.
+
+The verified previous helper must be retired before ordering, because it can
+otherwise reapply its own fixed positions. Background repair defers a move of
+the playing source while keeping source routing available.
