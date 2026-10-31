@@ -1,3 +1,12 @@
+# 0.6.0-dev16
+
+- Recover source registrations after a silent native catalog rebuild, without opening a source, sending HA actions or moving the active input.
+- Add a process-independent, non-waking maintenance check to TV Support 0.1.6; ordinary process death no longer removes the only recovery mechanism.
+- Refresh sources now repairs saved registrations and republishes the remote list. Connecting reads a fresh catalog.
+- Keep configured-but-missing shortcuts visible, reserve their slots and report deferred order restoration.
+- Preserve settings and avoid unchanged native/preference writes during healthy checks. Explicit Android force-stop still requires opening or starting the app again.
+- Standalone Spotify/Radio have their own independent recovery update; the gateway does not install or manage those players.
+
 # 0.6.0-dev15
 
 - Pause a connected media player when the TV leaves its configured HDMI input or enters standby, if that player is playing and supports pause.

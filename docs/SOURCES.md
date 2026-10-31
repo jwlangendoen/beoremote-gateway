@@ -144,3 +144,29 @@ restore. Uncertain ADB replies are reconciled against the committed revision.
 The verified previous helper must be retired before ordering, because it can
 otherwise reapply its own fixed positions. Background repair defers a move of
 the playing source while keeping source routing available.
+
+## Automatic registration recovery
+
+TV Support 0.1.6 checks its saved registrations with an inexact, non-waking
+Android alarm, nominally once per minute. The alarm survives ordinary process
+termination; Android can batch checks, especially in standby. Boot and package
+replacement recreate the alarm. No ADB or HA request is needed for these checks.
+A user-initiated Android force-stop cancels alarms and blocks receivers until the
+app is explicitly started again; no app can promise unattended recovery from that.
+
+The native firmware can replace its source table without issuing the provider
+notification used by observers. Maintenance also checks that case. It only
+restores this helper's saved entries and their visibility, retains owner/revision,
+callbacks and settings, and refuses occupied aliases or changed identities.
+Healthy checks do not rewrite native settings or unchanged preferences. Checks
+wait during a source handoff. Restoring the order of an active input is deferred
+until that input can keep playing safely; the UI reports the deferred order.
+
+Connect and Refresh sources read a fresh inventory. Refresh also reconciles saved
+shortcuts and republishes even an unchanged list to the remote. Repair never
+selects a source, launches an app, wakes the TV or runs a Home Assistant action.
+Configured shortcuts remain visible in the editor if a repair needs attention;
+their slots are reserved until that setup is changed or removed.
+
+Standalone Spotify and Radio use their own recovery mechanism and do not require
+Home Assistant or TV Support. Their APK updates are separate from gateway updates.

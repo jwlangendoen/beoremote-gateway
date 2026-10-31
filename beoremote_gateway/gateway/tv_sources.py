@@ -201,7 +201,7 @@ class TVSources:
                 row["edit_path"] = "/config/automation/edit/" + automation_id(tv, item["id"])
             rows.append(row)
         # Explicit projection: callback capabilities and TV originals never reach the UI.
-        result = {key: status[key] for key in ("state", "error", "revision", "version", "source_lists", "source_order", "source_cancel", "source_wake_wait", "source_pause", "catalog", "slots", "inputs", "apps", "legacy_trusted", "legacy_sources") if key in status} | {"entries": rows, "can_restore": self.path(tv, True).exists()}
+        result = {key: status[key] for key in ("state", "error", "revision", "version", "source_lists", "source_order", "source_cancel", "source_wake_wait", "source_pause", "source_repair", "source_order_deferred", "catalog", "slots", "inputs", "apps", "legacy_trusted", "legacy_sources") if key in status} | {"entries": rows, "can_restore": self.path(tv, True).exists()}
         if "launch_diagnostics" in status:
             result["launch_diagnostics"] = launch_diagnostics(status["launch_diagnostics"])
         return result

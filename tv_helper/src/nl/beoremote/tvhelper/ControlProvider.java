@@ -12,7 +12,12 @@ public final class ControlProvider extends ContentProvider {
     static final String PREFS="support";
     @Override public boolean onCreate(){return true;}
     static JSONObject read(Context c,String key,String fallback)throws JSONException{return new JSONObject(c.getSharedPreferences(PREFS,0).getString(key,fallback));}
-    static void write(Context c,String key,JSONObject value){if(!c.getSharedPreferences(PREFS,0).edit().putString(key,value.toString()).commit())throw new IllegalStateException("storage");}
+    static void write(Context c,String key,JSONObject value){
+        String encoded=value.toString();android.content.SharedPreferences prefs=c.getSharedPreferences(PREFS,0);
+        // A healthy periodic check must not rewrite unchanged status/originals to flash.
+        if(encoded.equals(prefs.getString(key,null)))return;
+        if(!prefs.edit().putString(key,encoded).commit())throw new IllegalStateException("storage");
+    }
     @Override public Bundle call(String method,String argument,Bundle extras){
         getContext().enforceCallingPermission("android.permission.DUMP","ADB management only");
         JSONObject result=new JSONObject();

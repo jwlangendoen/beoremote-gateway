@@ -1,0 +1,1 @@
+package android.app;import android.content.*;import android.os.IBinder;public class Service extends Context {public static final int START_STICKY=1;public void onCreate(){}public void onDestroy(){}public int onStartCommand(Intent i,int f,int id){return START_STICKY;}public IBinder onBind(Intent i){return null;}}

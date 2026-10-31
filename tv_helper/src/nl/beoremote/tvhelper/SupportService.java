@@ -11,17 +11,18 @@ import org.json.*;
 import java.util.*;
 
 /** Idle native observer. Registration never selects a source or launches an app. */
-public final class SupportService extends Service {
+public class SupportService extends Service {
     static final String TAG="BeoremoteSupport";
     // Process-local, bounded and free of callbacks, product IDs and app labels.
     // A status read can inspect a failure long after the logcat buffer rolled over.
     static volatile String launchDiagnostics="{\"events\":[]}";
     final ArrayDeque<JSONObject> launchEvents=new ArrayDeque<>();
+    volatile boolean publicationPending=true;
     static final Uri SOURCES=Uri.parse("content://com.bang_olufsen.sourcecontrol.provider.SourceControlProvider/source");
     static final Uri PRODUCTS=Uri.parse("content://com.bang_olufsen.sourcecontrol.provider.SourceControlProvider/product");
     static final Uri SETTINGS=Uri.parse("content://com.bang_olufsen.settings.provider.BeoProvider/beosettings");
     final Handler main=new Handler();final LaunchGate gate=new LaunchGate();
-    HandlerThread thread;Handler worker;Object nativeService,powerService;Class<?> nativeApi,powerApi;String productId;long productRow,configuredAt;boolean bound,powerBound,remoteBound,closed,scheduled,inventoryReady;Intent pending;ContentObserver observer;int bindAttempts,powerAttempts;
+    HandlerThread thread;Handler worker;Object nativeService,powerService;Class<?> nativeApi,powerApi;String productId;long productRow,configuredAt;boolean bound,powerBound,remoteBound,closed,scheduled,inventoryReady,orderDeferred;Intent pending;ContentObserver observer;int bindAttempts,powerAttempts,remoteGeneration;
     final ServiceConnection nativeConnection=new ServiceConnection(){
         public void onServiceConnected(ComponentName n,IBinder b){worker.post(()->{try{
             nativeApi=Class.forName("com.bang_olufsen.sourcecontrol.aidl.ISourceControlService");nativeService=Class.forName(nativeApi.getName()+"$Stub").getMethod("asInterface",IBinder.class).invoke(null,b);
@@ -29,7 +30,7 @@ public final class SupportService extends Service {
             if(productId==null||!productId.matches("[0-9]{4}\\.[0-9]+\\.[0-9]+@products\\.bang-olufsen\\.com"))throw new Exception("identity");
             try(Cursor c=getContentResolver().query(PRODUCTS,new String[]{"pid"},"product_id=?",new String[]{productId},null)){if(c==null||!c.moveToFirst())throw new Exception("product");productRow=c.getLong(0);}
             JSONObject config=config();ShortcutCatalog.ALL=ShortcutCatalog.parse(config);if(config.has("tv")&&!productId.equals(config.getString("tv")))throw new Exception("wrong TV");
-            if(pending!=null){Intent p=pending;pending=null;receive(p);}else reconcile(config,config);gate.rememberPlayback(activeSource(),SystemClock.elapsedRealtime());capabilities();
+            if(pending!=null){Intent p=pending;pending=null;receive(p);}else reconcile(config,config);gate.rememberPlayback(activeSource(),SystemClock.elapsedRealtime());capabilities();if(publicationPending)publish();
         }catch(Exception|LinkageError e){nativeService=null;ShortcutCatalog.ALL=new ShortcutCatalog.Entry[0];gate.cancel();failed("TV source support is unavailable on this firmware.");}});}
         public void onServiceDisconnected(ComponentName n){worker.post(()->{nativeService=null;gate.cancel();});}
     };
@@ -38,13 +39,14 @@ public final class SupportService extends Service {
         public void onServiceDisconnected(ComponentName n){worker.post(()->powerService=null);}
     };
     final ServiceConnection remoteConnection=new ServiceConnection(){
-        public void onServiceConnected(ComponentName n,IBinder b){worker.post(()->{try{Class<?> a=Class.forName("com.bang_olufsen.beobt.aidl.IBeoSettingsChange");Object s=Class.forName(a.getName()+"$Stub").getMethod("asInterface",IBinder.class).invoke(null,b);a.getMethod("onSourceListChanged").invoke(s);}catch(Exception|LinkageError ignored){}finally{main.post(()->{if(remoteBound){unbindService(remoteConnection);remoteBound=false;}});}});}
+        public void onServiceConnected(ComponentName n,IBinder b){worker.post(()->{try{Class<?> a=Class.forName("com.bang_olufsen.beobt.aidl.IBeoSettingsChange");Object s=Class.forName(a.getName()+"$Stub").getMethod("asInterface",IBinder.class).invoke(null,b);a.getMethod("onSourceListChanged").invoke(s);publicationPending=false;}catch(Exception|LinkageError ignored){}finally{main.post(()->{if(remoteBound){unbindService(remoteConnection);remoteBound=false;}});}});}
         public void onServiceDisconnected(ComponentName n){}
     };
     JSONObject config()throws JSONException{return ControlProvider.read(this,"config","{\"entries\":[]}");}
     @Override public void onCreate(){super.onCreate();thread=new HandlerThread("beoremote-support");thread.start();worker=new Handler(thread.getLooper());
+        SourceMaintenance.schedule(this);
         try{JSONObject s=ControlProvider.read(this,"status","{}");if("working".equals(s.optString("state"))){s.put("state","attention");s.put("error","An interrupted change needs to be checked before continuing.");ControlProvider.write(this,"status",s);}}catch(JSONException ignored){}
-        observer=new ContentObserver(worker){@Override public void onChange(boolean self){if(scheduled||closed||nativeService==null)return;scheduled=true;worker.postDelayed(()->{scheduled=false;try{JSONObject c=config();reconcile(c,c);capabilities();}catch(Exception|LinkageError e){failed("Source registration needs attention.");}},400);}};
+        observer=new ContentObserver(worker){@Override public void onChange(boolean self){if(scheduled||closed||nativeService==null)return;scheduled=true;worker.postDelayed(()->{scheduled=false;maintainSources();},400);}};
         getContentResolver().registerContentObserver(SOURCES,true,observer);
         bindNative();bindPower();
     }
@@ -62,8 +64,22 @@ public final class SupportService extends Service {
 
     @Override public int onStartCommand(Intent intent,int flags,int id){if(intent!=null)worker.post(()->receive(intent));return START_STICKY;}
     @Override public IBinder onBind(Intent i){return null;}
+    boolean launchInProgress(){return gate.phase!=LaunchGate.Phase.IDLE&&gate.phase!=LaunchGate.Phase.SENT;}
+    void maintainSources(){
+        if(closed)return;
+        // A slow native boot must not exhaust the only binding retry window.
+        if(nativeService==null||powerService==null)main.post(()->{if(!bound){bindAttempts=0;bindNative();}if(!powerBound){powerAttempts=0;bindPower();}});
+        if(nativeService==null||launchInProgress())return;
+        synchronized(ControlProvider.LOCK){try{
+            JSONObject c=config();reconcile(c,c);
+            JSONObject state=ControlProvider.read(this,"status","{}");
+            if("Source registration needs attention.".equals(state.optString("error",""))){state.put("state","ready");state.remove("error");ControlProvider.write(this,"status",state);}
+            capabilities();if(publicationPending)publish();
+        }catch(Exception|LinkageError e){failed("Source registration needs attention.");}}
+    }
     void receive(Intent intent){
         String action=intent.getAction();if(action==null||Intent.ACTION_BOOT_COMPLETED.equals(action)||Intent.ACTION_MY_PACKAGE_REPLACED.equals(action))return;
+        if(SourceMaintenance.CHECK.equals(action)){maintainSources();return;}
         if("apply".equals(action)||"test".equals(action)||"refresh".equals(action)){
             if(nativeService==null){pending=intent;return;}
             synchronized(ControlProvider.LOCK){try{
@@ -83,13 +99,16 @@ public final class SupportService extends Service {
                         throw error;
                     }
                 }else if("refresh".equals(action)){
-                    inventoryReady=false;
+                    // Firmware can replace its table without notifying ContentObservers.
+                    // Refresh repairs saved registrations and republishes even an unchanged list.
+                    if(launchInProgress())throw new Exception("source start in progress");
+                    JSONObject current=config();reconcile(current,current);publish();inventoryReady=false;
                 }else{
                     if(ShortcutCatalog.forSource(request.getString("id"))==null)throw new Exception("source");
                     startSource(request.getString("id"));
                 }
                 JSONObject state=ControlProvider.read(this,"status","{}");state.put("state","ready");state.put("operation",request.getString("operation"));state.remove("error");ControlProvider.write(this,"status",state);capabilities();
-            }catch(Exception|LinkageError e){failed("active source position".equals(e.getMessage())?"Switch to another source, then refresh sources before moving the source that is playing.":"The TV change was not confirmed. Check the TV and refresh before trying again.");}}
+            }catch(Exception|LinkageError e){failed("source start in progress".equals(e.getMessage())?"A source is starting. Wait a moment, then refresh sources.":"active source position".equals(e.getMessage())?"Switch to another source, then refresh sources before moving the source that is playing.":"The TV change was not confirmed. Check the TV and refresh before trying again.");}}
             return;
         }
         if("beo.intent.action.POWER_STATE_CHANGE".equals(action)){int s=intent.getIntExtra("STATE",-1);if(s==4||s==5||s==6){cancelLaunch("",false,intent.getLongExtra(SourceReceiver.RECEIVED_AT,SystemClock.elapsedRealtime()),true);gate.cancel();}if(s==4||s==5||s==6)pausePlayback("",true,intent.getLongExtra(SourceReceiver.RECEIVED_AT,SystemClock.elapsedRealtime()),true);launchTrace("power_event", "", s);return;}
@@ -150,8 +169,12 @@ public final class SupportService extends Service {
     void completeSource(String name)throws Exception{Class<?> t=Class.forName("com.bang_olufsen.networklink.model.UniqueSourceId");nativeApi.getMethod("sourceChange",t).invoke(nativeService,t.getConstructor(String.class,String.class).newInstance(name,productId));}
     String activeSource(){try(Cursor c=getContentResolver().query(SOURCES,new String[]{"source_name"},"source_pid=? AND is_active=1",new String[]{""+productRow},null)){if(c==null)throw new IllegalStateException("source state unavailable");return c.moveToFirst()?c.getString(0):"";}}
     JSONObject setting(String key)throws JSONException{JSONObject j=new JSONObject().put("exists",false);try(Cursor c=getContentResolver().query(SETTINGS,new String[]{"current_value_text"},"key=?",new String[]{key},null)){if(c==null)throw new JSONException("setting unavailable");if(c.moveToFirst())j.put("exists",true).put("value",c.isNull(0)?JSONObject.NULL:c.getString(0));}return j;}
-    void putSetting(String key,String value)throws JSONException{ContentValues v=new ContentValues();v.put("key",key);if(value==null)v.putNull("current_value_text");else v.put("current_value_text",value);getContentResolver().update(SETTINGS,v,"key=?",new String[]{key});JSONObject got=setting(key);if(!got.getBoolean("exists")||!Objects.equals(value,got.isNull("value")?null:got.getString("value")))throw new JSONException("setting");}
-    void publish(){main.post(()->{if(closed||remoteBound)return;try{remoteBound=bindService(new Intent("com.bang_olufsen.beobtremote.BeoBtRemoteService").setComponent(new ComponentName("com.bang_olufsen.beobtremote","com.bang_olufsen.beobtremote.BeoBtRemoteService")),remoteConnection,BIND_AUTO_CREATE);}catch(RuntimeException ignored){}});}
+    void putSetting(String key,String value)throws JSONException{JSONObject before=setting(key);if(before.getBoolean("exists")&&Objects.equals(value,before.isNull("value")?null:before.getString("value")))return;ContentValues v=new ContentValues();v.put("key",key);if(value==null)v.putNull("current_value_text");else v.put("current_value_text",value);getContentResolver().update(SETTINGS,v,"key=?",new String[]{key});JSONObject got=setting(key);if(!got.getBoolean("exists")||!Objects.equals(value,got.isNull("value")?null:got.getString("value")))throw new JSONException("setting");}
+    void publish(){publicationPending=true;main.post(()->{if(closed||remoteBound)return;try{
+        int generation=++remoteGeneration;
+        remoteBound=bindService(new Intent("com.bang_olufsen.beobtremote.BeoBtRemoteService").setComponent(new ComponentName("com.bang_olufsen.beobtremote","com.bang_olufsen.beobtremote.BeoBtRemoteService")),remoteConnection,BIND_AUTO_CREATE);
+        if(remoteBound)main.postDelayed(()->{if(remoteBound&&remoteGeneration==generation){unbindService(remoteConnection);remoteBound=false;}},8000);
+    }catch(RuntimeException ignored){}});}
     JSONObject union(JSONObject first,JSONObject second)throws JSONException{
         JSONObject result=new JSONObject(first.toString());JSONArray rows=new JSONArray();Set<String> seen=new HashSet<>();
         for(JSONObject list:new JSONObject[]{first,second}){JSONArray a=list.getJSONArray("entries");for(int i=0;i<a.length();i++){JSONObject row=a.getJSONObject(i);if(seen.add(row.getString("id")))rows.put(row);}}
@@ -180,26 +203,29 @@ public final class SupportService extends Service {
                 originals.remove(""+e.slot);
             }
         }
-        for(ShortcutCatalog.Entry e:entries){String where="source_pid=? AND source_name=?";String[] args={""+productRow,e.source};boolean exists;String label=null;int category=-1;
-            try(Cursor c=getContentResolver().query(SOURCES,new String[]{"source_type","source_friendly_name","category"},where,args,null)){exists=c!=null&&c.moveToFirst();if(exists){if(c.getInt(0)!=e.firmwareOrdinal)throw new Exception("source type");label=c.getString(1);category=c.getInt(2);}}
+        for(ShortcutCatalog.Entry e:entries){String where="source_pid=? AND source_name=?";String[] args={""+productRow,e.source};boolean exists;String label=null;int category=-1,inUse=0,sensed=0;
+            try(Cursor c=getContentResolver().query(SOURCES,new String[]{"source_type","source_friendly_name","category","is_use","signal_sensed"},where,args,null)){exists=c!=null&&c.moveToFirst();if(exists){if(c.getInt(0)!=e.firmwareOrdinal)throw new Exception("source type");label=c.getString(1);category=c.getInt(2);inUse=c.getInt(3);sensed=c.getInt(4);}}
             String listKey="sourcelist_"+ShortcutCatalog.SUFFIXES[e.slot]+"_beoremote_list";
-            if(exists&&e.label.equals(label)&&category==e.category&&e.sourceList.equals(setting(listKey).optString("value","")))continue;
+            String labelKey="sourcelist_"+ShortcutCatalog.SUFFIXES[e.slot]+"_friendly_name";
+            if(exists&&e.label.equals(label)&&category==e.category&&inUse==1&&sensed==1&&e.sourceList.equals(setting(listKey).optString("value",""))&&e.label.equals(setting(labelKey).optString("value","")))continue;
             putSetting("sourcelist_"+ShortcutCatalog.SUFFIXES[e.slot]+"_friendly_name",e.label);putSetting(listKey,e.sourceList);
-            ContentValues v=new ContentValues();v.put("source_friendly_name",e.label);v.put("category",e.category);
+            ContentValues v=new ContentValues();v.put("source_friendly_name",e.label);v.put("category",e.category);v.put("is_use",1);v.put("signal_sensed",1);
             if(exists){if(getContentResolver().update(SOURCES,v,where,args)!=1)throw new Exception("rename");}
             else{v.put("source_pid",productRow);v.put("source_name",e.source);v.put("source_type",e.firmwareOrdinal);v.put("is_active",0);v.put("is_use",1);v.put("profile","");v.put("source_ir_key",0);v.put("signal_sensed",1);v.put("cp_scheme",8);if(getContentResolver().insert(SOURCES,v)==null)throw new Exception("insert");}changed=true;
         }
+        orderDeferred=false;
         try{changed|=ordering.apply(next,activeSource());}
         catch(IllegalStateException error){
             // Background repair must keep routing available while a source is playing.
             // Explicit edits still require the active source to keep its position.
             if(!"active source position".equals(error.getMessage())||!next.optString("revision","").equals(config().optString("revision","")))throw error;
+            orderDeferred=true;
         }
         if(next.optString("revision","").equals(config().optString("revision","")))ordering.recover(next);
         ControlProvider.write(this,"originals",originals);if(changed||recovered)publish();
     }
     void capabilities()throws Exception{synchronized(ControlProvider.LOCK){
-        JSONObject state=ControlProvider.read(this,"status","{}");if(!"working".equals(state.optString("state"))&&!"attention".equals(state.optString("state")))state.put("state","ready");state.put("tv",productId);state.put("version","0.1.5");state.put("source_lists",new JSONArray().put("tv").put("music"));state.put("source_wake_wait",true).put("source_pause",true);state.put("source_order",true).put("catalog",new SourceOrder(this,SOURCES,productRow).catalog());
+        JSONObject state=ControlProvider.read(this,"status","{}");if(!"working".equals(state.optString("state"))&&!"attention".equals(state.optString("state")))state.put("state","ready");state.put("tv",productId);state.put("version","0.1.6");state.put("source_lists",new JSONArray().put("tv").put("music"));state.put("source_wake_wait",true).put("source_pause",true).put("source_repair",true).put("source_order_deferred",orderDeferred);state.put("source_order",true).put("catalog",new SourceOrder(this,SOURCES,productRow).catalog());
         JSONArray slots=new JSONArray(),inputs=new JSONArray(),apps=new JSONArray();
         boolean legacyTrusted=false;try{PackageInfo info=getPackageManager().getPackageInfo("nl.johan.horizonappletv",PackageManager.GET_SIGNATURES);byte[] hash=java.security.MessageDigest.getInstance("SHA-256").digest(info.signatures[0].toByteArray());StringBuilder hex=new StringBuilder();for(byte b:hash)hex.append(String.format(java.util.Locale.ROOT,"%02x",b&255));legacyTrusted=info.versionCode>=108&&"6ce62474011f288bed0a822e0c8587a83c05d3dec19226a19e6002e619979921".equals(hex.toString());}catch(Exception ignored){}
         int legacySources=0;Set<String> legacyNames=new HashSet<>(Arrays.asList("ATV_NETFLIX","ATV_YOUTUBE","ATV_PLUS","ATV_PRIME","ATV_SVT","ATV_HBO","ATV_F1_TV","ATV_NLZIET"));

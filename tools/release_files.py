@@ -27,7 +27,7 @@ FIXED = (
     "tools/build_helper.py", "tools/check_helper.py", "tools/test_helper.sh", "tools/test_source_launch.py",
     "beoremote_gateway/gateway/helper_apk.json", "beoremote_gateway/gateway/helper_apk.b64",
     "tv_helper/AndroidManifest.xml", "tv_helper/res/values/strings.xml",
-    "tv_helper/tests/LaunchGateTest.java", "tv_helper/tests/SourceOrderTest.java",
+    "tv_helper/tests/LaunchGateTest.java", "tv_helper/tests/SourceOrderTest.java", "tv_helper/tests/SourceRecoveryTest.java",
 )
 MODULES = (
     "__init__.py", "__main__.py", "buttons.py", "config.py", "discovery.py",
@@ -40,8 +40,11 @@ MODULES = (
 def public_files(root=ROOT):
     root = Path(root).resolve()
     helper = tuple("tv_helper/src/nl/beoremote/tvhelper/" + name + ".java" for name in
-                   ("SupportService", "ControlProvider", "SourceReceiver", "StartReceiver", "LaunchGate", "ShortcutCatalog", "WebhookClient", "SourceOrder", "SourceOrderPlan", "SourceOrderTransaction"))
-    names = sorted((*FIXED, *helper, *(f"beoremote_gateway/gateway/{name}" for name in MODULES)))
+                   ("SupportService", "ControlProvider", "SourceReceiver", "StartReceiver", "LaunchGate", "ShortcutCatalog", "WebhookClient", "SourceOrder", "SourceOrderPlan", "SourceOrderTransaction", "SourceMaintenance"))
+    stubs = tuple(path.relative_to(root).as_posix() for path in sorted((root / "tv_helper/tests/android-stubs").rglob("*.java")))
+    if len(stubs) != 28:
+        raise ValueError("Missing Android recovery test stubs")
+    names = sorted((*FIXED, *helper, *stubs, *(f"beoremote_gateway/gateway/{name}" for name in MODULES)))
     for name in names:
         path = root / name
         if not path.is_file() or any(parent.is_symlink() for parent in (path, *path.parents)):

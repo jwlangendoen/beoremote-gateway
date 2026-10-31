@@ -268,7 +268,15 @@ class SetupController:
             address, jid, _local = await self._source_target()
             result = await self.sources.adb.inspect(address)
             if result.get("state") == "connected" and result.get("helper_installed"):
-                result["helper"] = await self.source_editor().status(self.sources.adb, address, jid)
+                editor = self.source_editor()
+                try:
+                    result["helper"] = await editor.refresh(self.sources.adb, address, jid)
+                except ValueError:
+                    # Keep saved shortcuts visible when repair needs attention.
+                    # status() still enforces the selected TV and gateway owner.
+                    result["helper"] = await editor.status(self.sources.adb, address, jid)
+                    if result["helper"].get("state") != "attention":
+                        raise
             return {**result, "tv_jid": jid}
 
     async def source_operation(self, operation, data):
