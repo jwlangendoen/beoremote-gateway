@@ -50,6 +50,11 @@ public final class SourceOrderTest {
         collision.rows.removeIf(r->r.source.equals("HDMI1"));collision.rows.add(row(99,7,"HDMI1",10,1));collision.rows.add(row(2,99,"FOREIGN",10,1));
         try{new SourceOrderTransaction(collision,7).recover(oldRevision);throw new AssertionError();}catch(IllegalStateException expected){}
         check(collision.sid("FOREIGN")==2&&collision.journal!=null);
+        Store changed=new Store();new SourceOrderTransaction(changed,7).begin(nextRevision,SourceOrderPlan.plan(changed.rows(),7,order(),""));
+        changed.rows.removeIf(r->r.source.equals("HDMI1"));changed.rows.add(row(2,7,"HDMI1",10,3));
+        int writes=changed.writes;
+        try{new SourceOrderTransaction(changed,7).recover(oldRevision);throw new AssertionError();}catch(IllegalStateException expected){}
+        check(changed.writes==writes&&changed.journal!=null);
         // A newly discovered source follows the retained relative order.
         Store added=new Store();added.rows.add(row(5,7,"NEW",15,1));Map<Integer,List<String>> remembered=order();remembered.get(1).set(0,"REMOVED");
         List<SourceOrderPlan.Move> updated=SourceOrderPlan.plan(added.rows(),7,remembered,"");check(!updated.isEmpty());

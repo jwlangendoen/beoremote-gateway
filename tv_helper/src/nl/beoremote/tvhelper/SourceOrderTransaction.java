@@ -34,7 +34,7 @@ final class SourceOrderTransaction {
         for(SourceOrderPlan.Move move:journal.moves){
             if(move.row.product!=product||!names.add(move.row.source)||!targets.add(forward?move.target:move.row.sid))throw new IllegalStateException("invalid order journal");
             SourceOrderPlan.Row found=null;
-            for(SourceOrderPlan.Row row:rows)if(row.product==product&&row.source.equals(move.row.source)){if(found!=null||row.type!=move.row.type)throw new IllegalStateException("source identity changed");found=row;}
+            for(SourceOrderPlan.Row row:rows)if(row.product==product&&row.source.equals(move.row.source)){if(found!=null||row.type!=move.row.type||row.category!=move.row.category||!row.visible)throw new IllegalStateException("source identity changed");found=row;}
             if(found==null)throw new IllegalStateException("source removed during ordering");
             selected.add(found);same&=found.sid==(forward?move.target:move.row.sid);
         }

@@ -33,7 +33,7 @@ final class SourceOrder implements SourceOrderTransaction.Store {
     public void move(SourceOrderPlan.Row row,long from,long to){
         if(row.product!=product)throw new IllegalStateException("wrong product");
         ContentValues values=new ContentValues();values.put("sid",to);
-        if(context.getContentResolver().update(uri,values,"source_pid=? AND source_name=? AND source_type=? AND sid=?",new String[]{""+product,row.source,""+row.type,""+from})!=1)throw new IllegalStateException("source changed during ordering");
+        if(context.getContentResolver().update(uri,values,"source_pid=? AND source_name=? AND source_type=? AND sid=? AND category=? AND is_use=?",new String[]{""+product,row.source,""+row.type,""+from,""+row.category,"1"})!=1)throw new IllegalStateException("source changed during ordering");
     }
     static List<String> names(JSONArray array)throws JSONException{
         if(array.length()>256)throw new JSONException("order limit");List<String> names=new ArrayList<>();

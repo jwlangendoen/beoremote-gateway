@@ -24,8 +24,8 @@
   "beoremote_gateway/gateway/events.py": "138541a0b30bc95562b5928ca8ff6cf9ac5b12b5ac66acd910a486723063b4e2",
   "beoremote_gateway/gateway/ha.py": "922ffff3c529d1e7dec506fde3363194eaa52a65187f4b51520f095479eb9c66",
   "beoremote_gateway/gateway/health.py": "f6898982fd30fdb9c18989595bd63de05e2ecc1f3f9bb09e068726b843b4dc8a",
-  "beoremote_gateway/gateway/helper_apk.b64": "1dce18789a6bcafad94fcf51eeaa15ad6176c899e3f65b05df5354906e18888d",
-  "beoremote_gateway/gateway/helper_apk.json": "1170f49b68a0eafd7118e1f34bc28e574f9ab97aef0eec3f78974853880af78d",
+  "beoremote_gateway/gateway/helper_apk.b64": "f615d9814a7890a88b348b1987e31bbece16ec730e12f68fcfbbf88d5b1618f6",
+  "beoremote_gateway/gateway/helper_apk.json": "81d08606f09f9aa292083d95626ee341fa84e10d8866fd994332c4c71e51df57",
   "beoremote_gateway/gateway/learning.py": "4272f3374d1c0bcfdf86dd0b477657182346ee014be521a0587de19fcbdffc2e",
   "beoremote_gateway/gateway/protocol.py": "4b987e48d1ddec1b0e8c08dd400dcc258debb6f28217a10ccc3b02c10a5c8d1a",
   "beoremote_gateway/gateway/runtime.py": "d7abad95cbc9c3ac6f2869015411a501e4934a8b21afa4263d95c10688519fd2",
@@ -71,13 +71,13 @@
   "tv_helper/src/nl/beoremote/tvhelper/ControlProvider.java": "d6a436791d6151176768c135d8cf64bb57d61d0e80722598cbc7f476e2606af7",
   "tv_helper/src/nl/beoremote/tvhelper/LaunchGate.java": "4abd02d37c0a0de5d17275539e57902963579d46fde479f49ba188c17eae5dd4",
   "tv_helper/src/nl/beoremote/tvhelper/ShortcutCatalog.java": "834183f613d0cc279879679c537077b4bdf76c500ce7b91583206888f8b9bcdd",
-  "tv_helper/src/nl/beoremote/tvhelper/SourceOrder.java": "753f4afa23c47a9486ec078b1362ad998cb30a21f0af67156f70a2b842789bd7",
+  "tv_helper/src/nl/beoremote/tvhelper/SourceOrder.java": "cb16bd5355ca120a1db84d6155811e33351fc49d476309822fc82a0914186d4b",
   "tv_helper/src/nl/beoremote/tvhelper/SourceOrderPlan.java": "cee4678419acb39b8106680937d3411a73b9255267c131be41530a15aa407df2",
-  "tv_helper/src/nl/beoremote/tvhelper/SourceOrderTransaction.java": "adf9168010ce1025568f2105ceca3312b7022075f574e67b85ae858a48c76f74",
+  "tv_helper/src/nl/beoremote/tvhelper/SourceOrderTransaction.java": "190e4585968dcc1c6e1a0b6ed9a13aff883d4868afcac2a160b6e10944de7fcd",
   "tv_helper/src/nl/beoremote/tvhelper/SourceReceiver.java": "8d7c6aecde6fa36837ae4684af5134fe29746f10aab509629171d76119fe0aaf",
   "tv_helper/src/nl/beoremote/tvhelper/StartReceiver.java": "a7dea1d2c863b7479d6a1b92574265c0d6b893ca536b36b111facc5d17c4227b",
   "tv_helper/src/nl/beoremote/tvhelper/SupportService.java": "6a0dda3656f336011c70982cc66e70309aa12d873d4cbe580a984ab369d21d91",
   "tv_helper/src/nl/beoremote/tvhelper/WebhookClient.java": "cb2e57225613bf39f552d2b9076eca4f9816fcf36cd8d33a2f98d8b9a5c70903",
   "tv_helper/tests/LaunchGateTest.java": "38556825ff275cac89cd8d352ba187240d1d0980cc8df87488174a5f170275e5",
-  "tv_helper/tests/SourceOrderTest.java": "54452f2809445ae44b9783af21354dce73bba33f8abcbbb0fe11840b970e23e0"
+  "tv_helper/tests/SourceOrderTest.java": "eb9c636e21fec15cf86d3e818aba446ca63ba41fa1fb238b330d487ca90157bf"
 }
