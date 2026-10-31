@@ -1,4 +1,4 @@
-# Beoremote Gateway 0.6.0-dev13
+# Beoremote Gateway 0.6.0-dev14
 
 Control Home Assistant with your Beoremote One BT through an Android-based
 Beovision TV. The remote pairs with the TV over Bluetooth; the TV forwards
@@ -86,7 +86,11 @@ the finished list once; **Cancel** discards the local edit. You can reorder
 one list at a time. Tab changes keep the edit; save or cancel before changing
 TV setup or editing sources. This needs TV Support 0.1.2 or later; Configuration
 offers the update. Moving does not select a source or run an HA action. If the
-playing source would move, choose another source first. **Restore previous setup**
+playing source would move, select a source outside the list being edited first:
+use a MUSIC source while ordering TV, or a TV source while ordering MUSIC.
+Switching between apps on the same HDMI device does not change the active TV
+input. Choose **Check TV order**, then save again; your draft is kept.
+**Restore previous setup**
 also restores the order from before the last saved change. If a save is not
 confirmed, **Check TV order** reads the actual TV state before another attempt.
 A preserved draft is applied only to the same TV and unchanged list; an order
