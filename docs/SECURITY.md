@@ -118,6 +118,38 @@ household equipment. Supervisor's identity-header and WebSocket contracts were
 checked in its 2026.10.0 source. A physical button check after upgrading remains
 necessary, as does a full test of the deployed Supervisor ingress path.
 
+### Source-extension development candidate
+
+The 0.6.0 development branch retains the current administrator, ingress and
+page-token boundary. Fixed operation schemas require the browser's selected TV
+identity; current revision and server-side identity/ownership checks prevent
+stale-page or cross-installation writes. No endpoint accepts an IP address,
+ADB command, SQL statement, arbitrary intent or callback URL.
+
+The selected TV's bounded native HTTP identity is checked before ADB. This
+prevents accidental IP reuse; it is not cryptographic authentication. ADB uses
+a private key and an isolated loopback daemon. The explicit installer verifies
+the bundled APK digest, uses replace-with-data-preservation, and never uninstalls
+an app to get around a signing mismatch. The previous-helper option verifies
+its certificate and version before using its fixed removal receiver.
+
+The helper's control provider requires DUMP even for reads. DEVICE_POWER gates
+native broadcasts; its service is private, non-debuggable and has no Activity.
+Slot/type checks and bound native provider selection arguments restrict writes
+to owned generated sources. Native setting originals and interrupted plans are
+retained privately. A lost reply does not cause deletion of an HA capability
+that the TV might have committed. Restoring refuses later HA edits.
+
+Each source receives at most a limited local webhook capability, never the
+Supervisor/HA token. Freshness and TV/source checks restrict webhook events;
+requests have bounded timeouts and no redirects, proxy inheritance or retries.
+Private configuration, backups and signing keys are excluded from the public
+source boundary. The signed generic APK contains no deployment configuration.
+
+The full device-side behavior still requires hardware testing. Earlier OS scan
+counts describe 0.5.1, not the Debian ADB packages added in development; this
+candidate has not received a new full container vulnerability assessment.
+
 Relevant upstream code:
 [Core ingress session identity](https://github.com/home-assistant/core/blob/2026.10.4/homeassistant/components/hassio/websocket_api.py),
 [Supervisor ingress headers](https://github.com/home-assistant/supervisor/blob/2026.10.0/supervisor/api/ingress.py),

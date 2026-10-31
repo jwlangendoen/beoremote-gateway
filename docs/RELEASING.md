@@ -59,3 +59,9 @@ Keep the repository URL stable: Home Assistant uses it to identify the app.
 A local-app installation and a repository installation are separate installs.
 If you're moving between them, stop the old gateway before starting the new one
 with the same port and identity.
+
+Keep development work on a branch while hardware checks remain incomplete.
+Use a local fixture for UI checks. Deliver reviewed updates through the existing
+repository installation, preserving its slug and saved setup. Do not leave a
+local test installation beside the repository app. Back up a test installation
+before removing it, and retain the normal installation's update settings.

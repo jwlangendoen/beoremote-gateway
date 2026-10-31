@@ -1,4 +1,4 @@
-# Beoremote Gateway 0.5.1
+# Beoremote Gateway 0.6.0-dev5
 
 The idea is to use Home Assistant a bit like BeoLiving Intelligence: your
 Beoremote One's LIGHT buttons run actions for your home. You need
@@ -30,6 +30,41 @@ you'll see its existing name and action instead of creating another one.
 Use **Change** or **Pause** beside a button, or **Open in Home Assistant** for
 more options. Scripts with required inputs need the Home Assistant editor.
 Disable any older automation for the same button so one press doesn't run both.
+
+## TV sources (experimental)
+
+Choose **Set up TV sources** below **Button actions**, then **Connect to TV**.
+Enable network debugging (ADB) on the TV and allow the connection if asked.
+Ordinary button actions do not need ADB or a TV installation.
+
+Choose **Install TV Support**. This small background app has no TV screen.
+Source setup currently supports Beovision Horizon with Android 5.1; the helper
+also checks the native firmware aliases before changing the source list.
+
+If a supported previous helper is found, **Replace the previous source helper**
+removes its old shortcuts and stops it. No shortcuts or old HA actions are
+migrated. Choose a normal input first if the old shortcut is still active.
+Other TV apps are kept.
+
+Choose **Add a source**, give it a name, then choose a TV app or an existing HDMI
+input. Optionally select a scene, lights-off, a script, or **Choose in Home Assistant**
+for any action or condition in its normal automation editor.
+
+**Save source** adds or updates the shortcut without opening it. **Test on TV**
+selects it and can run its linked HA action. Check the actual picture and remote
+controls. **Remove** deletes a shortcut created here. Switch away from an active
+shortcut before removing it. **Restore previous setup** recovers the list and
+unchanged source automation from before the last edit; later HA edits are kept.
+
+Only free firmware source slots are used. Existing HDMI and player sources are
+not taken over. Hiding setup closes the ADB connection; configured shortcuts
+keep working on the TV. Local-app routes need no HA action for daily use.
+HA actions use limited local webhooks; the TV receives no general HA token.
+Use a stable local address for the HA host. Saving sources refreshes the callback
+address for the edited source.
+
+This candidate has not yet passed the physical installation and remote tests.
+Keep it on the development branch until those checks are recorded.
 
 ## No button received?
 

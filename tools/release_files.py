@@ -23,17 +23,25 @@ FIXED = (
     "tests/test_public_release.py", "tests/test_setup.py", "tests/test_actions.py",
     "beoremote_gateway/gateway/setup.html",
     "beoremote_gateway/translations/en.yaml", "beoremote_gateway/translations/nl.yaml",
+    "tests/test_sources.py", "tests/test_tv_sources.py", "docs/SOURCES.md",
+    "tools/build_helper.py", "tools/check_helper.py", "tools/test_helper.sh",
+    "beoremote_gateway/gateway/helper_apk.json", "beoremote_gateway/gateway/helper_apk.b64",
+    "tv_helper/AndroidManifest.xml", "tv_helper/res/values/strings.xml",
+    "tv_helper/tests/LaunchGateTest.java",
 )
 MODULES = (
     "__init__.py", "__main__.py", "buttons.py", "config.py", "discovery.py",
     "events.py", "health.py", "protocol.py", "server.py", "xmlstream.py",
     "autodetect.py", "runtime.py", "setup.py", "web.py", "actions.py", "learning.py", "ha.py",
+    "sources.py", "tv_sources.py",
 )
 
 
 def public_files(root=ROOT):
     root = Path(root).resolve()
-    names = sorted((*FIXED, *(f"beoremote_gateway/gateway/{name}" for name in MODULES)))
+    helper = tuple("tv_helper/src/nl/beoremote/tvhelper/" + name + ".java" for name in
+                   ("SupportService", "ControlProvider", "SourceReceiver", "StartReceiver", "LaunchGate", "ShortcutCatalog", "WebhookClient"))
+    names = sorted((*FIXED, *helper, *(f"beoremote_gateway/gateway/{name}" for name in MODULES)))
     for name in names:
         path = root / name
         if not path.is_file() or any(parent.is_symlink() for parent in (path, *path.parents)):

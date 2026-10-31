@@ -1,3 +1,45 @@
+# 0.6.0-dev5 — development only
+
+- Add the TV Support installer and source editor to the existing flow.
+- Configure local TV apps or existing HDMI inputs, with optional native HA actions.
+- Save without playback, explicitly test on TV, change, remove or restore.
+- Keep signed helper source/artifact together; private signing keys stay local.
+- Protect management with DUMP, native broadcasts with DEVICE_POWER, and TV
+  mutations with selected identity, ownership and revision checks.
+- Preserve private native setting originals and recover interrupted plans.
+- Retire the verified previous helper only when explicitly replacing it, without migration.
+- Keep hardware testing and rollout deferred; nothing is installed by this commit.
+
+# 0.6.0-dev4
+
+- Explain setup in terms of button actions and TV sources; remove player-specific
+  assumptions and references to earlier separate setup flows.
+- Mark the app inventory as a preview and state that source editing is unavailable.
+- Hide button setup until a TV is chosen and explain paused reception accurately.
+- Resume reception for the saved TV directly, without choosing it again.
+- Keep the source checkbox stable while saving; show progress only during inventory.
+- List all installed apps uniformly, without special treatment for particular players.
+
+# 0.6.0-dev3
+
+- Check the ADB authorization state even when the connect command times out.
+- Log the fixed inventory stage on timeout, without device addresses or keys.
+
+# 0.6.0-dev2
+
+- Verify native B&O product identity before ADB inventory. Reuse a verified
+  receiver address when the TV temporarily disappears from mDNS discovery.
+- Refuse old or rediscovered IP addresses that belong to a different product.
+
+# 0.6.0-dev1 — development candidate
+
+- Add optional source setup to the existing TV/button flow, without a second TV chooser.
+- Explicit network ADB connection and read-only package inventory for the selected TV.
+- Persist the source-management preference and ADB key; use a separate loopback ADB server.
+- Keep existing administrator, ingress and page-token checks on the new operations.
+- Recognize independent Spotify/Radio packages; do not modify their sources.
+- TV helper installation and source editing remain subsequent stages.
+
 # 0.5.1
 
 - Explain the original idea: use Home Assistant a bit like BeoLiving Intelligence.

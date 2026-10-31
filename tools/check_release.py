@@ -55,6 +55,8 @@ def check():
     for choice in inputs["light_payload"]["selector"]["select"]["options"]:
         raw = bytes.fromhex(choice["value"])
         assert len(raw) == 13 and raw[1] == 27 and raw[4] != 126
+    from check_helper import check as check_helper
+    check_helper()
     hashes = manifest()
     print(f'Release {config["version"]}: {len(hashes)} public files, metadata and setup defaults valid')
 
