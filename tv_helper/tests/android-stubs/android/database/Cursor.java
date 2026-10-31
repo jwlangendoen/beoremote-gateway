@@ -1,0 +1,1 @@
+package android.database;public interface Cursor extends AutoCloseable {boolean moveToFirst();boolean moveToNext();String getString(int i);int getInt(int i);long getLong(int i);boolean isNull(int i);void close();}

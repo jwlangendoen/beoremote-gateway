@@ -155,6 +155,44 @@ class ControllerSourcesTests(SetupFixture, unittest.IsolatedAsyncioTestCase):
         self.controller.sources.adb = self.adb
         self.controller.sources.verify = AsyncMock(return_value=True)
 
+    async def test_connect_reads_a_fresh_repaired_catalog_without_testing_a_source(self):
+        await self.controller.scan()
+        await self.controller.select(TV_JID)
+        await self.controller.set_sources_enabled(True)
+        self.adb.inspect.return_value = {"state": "connected", "helper_installed": True}
+        editor = Mock()
+        editor.refresh = AsyncMock(return_value={"state": "ready", "catalog": [], "entries": []})
+        self.controller._source_editor = editor
+        result = await self.controller.inspect_sources()
+        editor.refresh.assert_awaited_once_with(self.adb, "192.0.2.10", TV_JID)
+        self.assertEqual(result["helper"]["state"], "ready")
+        self.adb.start_helper.assert_not_called()
+
+    async def test_failed_registration_remains_visible_with_saved_shortcuts(self):
+        await self.controller.scan()
+        await self.controller.select(TV_JID)
+        await self.controller.set_sources_enabled(True)
+        self.adb.inspect.return_value = {"state": "connected", "helper_installed": True}
+        editor = Mock()
+        editor.refresh = AsyncMock(side_effect=ValueError("Occupied source alias"))
+        editor.status = AsyncMock(return_value={"state": "attention", "error": "Occupied source alias", "entries": [{"id": "saved"}], "catalog": []})
+        self.controller._source_editor = editor
+        result = await self.controller.inspect_sources()
+        self.assertEqual(result["helper"]["entries"], [{"id": "saved"}])
+        self.assertEqual(result["helper"]["state"], "attention")
+
+    async def test_fresh_connect_does_not_hide_gateway_owner_rejection(self):
+        await self.controller.scan()
+        await self.controller.select(TV_JID)
+        await self.controller.set_sources_enabled(True)
+        self.adb.inspect.return_value = {"state": "connected", "helper_installed": True}
+        editor = Mock()
+        editor.refresh = AsyncMock(side_effect=ValueError("Different gateway owner"))
+        editor.status = AsyncMock(side_effect=ValueError("Different gateway owner"))
+        self.controller._source_editor = editor
+        with self.assertRaisesRegex(ValueError, "Different gateway owner"):
+            await self.controller.inspect_sources()
+
     async def test_shared_selection_is_required_and_enable_does_not_touch_light_receiver(self):
         await self.controller.set_sources_enabled(True)
         with self.assertRaises(ValueError):

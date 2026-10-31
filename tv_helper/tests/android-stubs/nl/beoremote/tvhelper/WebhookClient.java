@@ -1,0 +1,1 @@
+package nl.beoremote.tvhelper;final class WebhookClient {static int sends;static void validate(String u){}static void send(String u,String s,String p){sends++;}static void send(String u,String s,String p,boolean c){sends++;}static void pause(String u,String s,String p){sends++;}}

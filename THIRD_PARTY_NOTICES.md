@@ -27,3 +27,7 @@ it calls interfaces already present on the TV through reflection.
 Bang & Olufsen, Beoremote and Beovision are names of their respective owners.
 This is an independent community project. No B&O firmware, proprietary libraries,
 brand fonts, logos, private device captures or account credentials are distributed.
+
+The host-side TV Support recovery tests use org.json 20240303 from Maven Central
+(Public Domain, as declared by the artifact POM; https://github.com/stleary/JSON-java). The downloaded JAR is checksum
+pinned, is used only for tests, and is not included in the APK or source archive.

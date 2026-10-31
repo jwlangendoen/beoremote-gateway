@@ -1,0 +1,1 @@
+package android.os; public class Handler { public Handler(){} public Handler(Object looper){} public void post(Runnable r){r.run();} public void postDelayed(Runnable r,long delay){} public void removeCallbacksAndMessages(Object o){} }

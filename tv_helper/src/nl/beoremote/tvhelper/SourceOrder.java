@@ -54,6 +54,10 @@ final class SourceOrder implements SourceOrderTransaction.Store {
     boolean apply(JSONObject next,String active)throws JSONException{
         List<SourceOrderPlan.Move> moves=SourceOrderPlan.plan(rows(),product,desired(next),active);transaction.begin(next.optString("revision",""),moves);return !moves.isEmpty();
     }
+    SourceOrderPlan.Repair repair(JSONObject next,String active)throws JSONException{
+        SourceOrderPlan.Repair plan=SourceOrderPlan.repair(rows(),product,desired(next),active);
+        transaction.begin(next.optString("revision",""),plan.moves);return plan;
+    }
     JSONArray catalog()throws JSONException{
         JSONArray array=new JSONArray();
         try(Cursor c=context.getContentResolver().query(uri,new String[]{"source_name","source_friendly_name","category","is_use"},"source_pid=?",new String[]{""+product},"sid ASC")){

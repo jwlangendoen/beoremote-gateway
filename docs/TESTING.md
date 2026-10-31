@@ -327,3 +327,11 @@ Before a Horizon beta release, complete and record:
   period of 24–48 hours with standby and reconnection cycles.
 
 Other TV models, CONTROL and continuous dimming remain outside verified support.
+
+The helper recovery harness compiles the real SupportService and registration/
+ordering code against small Android/provider test doubles. It exercises silent
+table replacement, a fresh helper process, hidden owned rows, alias conflicts,
+read-only healthy checks and active-input ordering deferral without running HA
+or a TV. tools/test_helper.sh downloads the test-only org.json 20240303 JAR from
+Maven Central on first use and verifies its pinned SHA-256 on every run. The JAR
+is not included in the Android app or source release.

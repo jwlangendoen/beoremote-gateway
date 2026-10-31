@@ -1,0 +1,1 @@
+package android.content.pm;import android.content.pm.PackageManager;public class ApplicationInfo {public static final int FLAG_SYSTEM=1;public String packageName;public int flags;public CharSequence loadLabel(PackageManager p){return "app";}}
