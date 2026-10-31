@@ -224,3 +224,20 @@ or actions worked.
   callbacks and preserves paused state across edits/removal/restoration.
 - Native MUSIC placement, actual Apple TV launch and remote keys remain hardware
   checks until an explicit physical result is recorded.
+
+## Complete source ordering (0.6.0-dev8)
+
+- 170 Python regressions pass, including complete-list permutation validation,
+  MUSIC/TV isolation, first-reorder restore, unchanged source routes and custom/
+  paused HA actions, uncertain replies, helper capability gates and current-TV/
+  administrator/page-token checks.
+- Java tests simulate all eight write boundaries of a two-list reorder, cleanup
+  failure after commit, occupied recovery positions, foreign products, the active
+  source, disappearing sources and newly discovered sources. Logical identities
+  and the other source columns remain unchanged.
+- Browser fixture: move a saved shortcut between existing TV sources; move an
+  existing MUSIC source; verify independent groups, disabled list boundaries,
+  retained keyboard focus and Restore previous setup.
+- TV Support 0.1.2 builds with the retained signing identity and passes artifact/
+  source checks. Actual household source-table writes and the remote list still
+  need the integral check; no fixture action contacts the household TV or HA.

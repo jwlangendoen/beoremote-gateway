@@ -73,7 +73,7 @@ dialog::backdrop { background:#0006; } #learn-note { margin-bottom:16px; } #dial
     <div id="source-config-prompt"><p id="source-config-prompt-text">Set up TV Support in Configuration to add and manage sources.</p><button type="button" data-open-configuration>Open Configuration</button></div>
       <div id="source-editor" hidden>
         <div class="heading"><h3>Your sources</h3><button id="source-add" type="button" class="primary">Add a source</button></div>
-        <p class="muted">Saving adds the shortcut without opening it. Use Test on TV when you are ready to try it.</p>
+        <p class="muted">Move sources up or down to change their order on the remote. Saving and moving sources do not open them.</p>
         <div id="source-rows"></div>
         <p id="source-slots" class="muted"></p>
         <div class="actions"><button id="source-refresh" type="button">Refresh sources</button><button id="source-restore" type="button" hidden>Restore previous setup</button></div>
@@ -371,7 +371,7 @@ function showSourceEditor() {
   const ready=!!sourceHelper && ['ready','attention'].includes(sourceHelper.state);
   el('source-editor').hidden=!ready;
   el('source-config-prompt').hidden=ready;
-  const upgrade=!!sourceHelper && !(sourceHelper.source_lists || []).includes('music');
+  const upgrade=!!sourceHelper && (!(sourceHelper.source_lists || []).includes('music') || !sourceHelper.source_order);
   el('source-install').hidden=!!sourceHelper && !upgrade && !(sourceHelper.legacy_sources>0);
   el('source-install-button').textContent=upgrade?'Update TV Support':'Install TV Support';
   el('source-install-title').textContent=upgrade?'Update TV Support':'Install TV Support';
@@ -383,18 +383,35 @@ function showSourceEditor() {
   el('source-slots').textContent=free+' more '+(free===1?'source can':'sources can')+' be added.';
   el('source-add').disabled=sourceBusy || sourceHelper.state!=='ready' || free===0;
   el('source-restore').hidden=!sourceHelper.can_restore;
-  for(const row of sourceHelper.entries || []) {
-    const card=document.createElement('div');card.className='rule';
-    const name=document.createElement('strong');name.textContent=row.name;
-    const detail=document.createElement('p');detail.className='muted';
-    const target=(sourceHelper.apps || []).find(app=>app.package===row.target) || (sourceHelper.inputs || []).find(input=>input.id===row.target);
-    detail.textContent=(row.source_list || 'tv').toUpperCase()+' · '+(row.kind==='app'?'TV app: ':'Input: ')+(target?.name || row.target)+(row.launch_source?' · '+row.launch_source:'')+(row.action_kind!=='none'?' · Home Assistant action':'');
-    const buttons=document.createElement('div');buttons.className='actions';
-    for(const [label,handler] of [['Change',()=>openSource(row)],['Test on TV',()=>sourceTask('test',{id:row.id})],['Remove',()=>{if(confirm('Remove “'+row.name+'” from the source list?'))sourceTask('remove',{revision:sourceHelper.revision || '',id:row.id});}]]){
-      const button=document.createElement('button');button.type='button';button.textContent=label;button.setAttribute('aria-label',label+' '+row.name);button.disabled=sourceBusy;button.addEventListener('click',handler);buttons.append(button);
+  const entries=sourceHelper.entries || [], catalog=sourceHelper.catalog || entries;
+  for(const group of ['tv','music']) {
+    const items=catalog.filter(row=>(row.source_list || 'tv')===group);
+    if(!items.length)continue;
+    const heading=document.createElement('h3');heading.textContent=group.toUpperCase();el('source-rows').append(heading);
+    for(const [index,item] of items.entries()) {
+      const row=entries.find(entry=>entry.id===item.id),card=document.createElement('div');card.className='rule';
+      const name=document.createElement('strong');name.textContent=row?.name || item.name;
+      const detail=document.createElement('p');detail.className='muted';
+      const target=(sourceHelper.apps || []).find(app=>app.package===row?.target) || (sourceHelper.inputs || []).find(input=>input.id===row?.target);
+      detail.textContent=row?(row.kind==='app'?'TV app: ':'Input: ')+(target?.name || row.target)+(row.launch_source?' · '+row.launch_source:'')+(row.action_kind!=='none'?' · Home Assistant action':''):'On your TV';
+      const buttons=document.createElement('div');buttons.className='actions';
+      for(const [label,delta] of [['Move up',-1],['Move down',1]]) {
+        const button=document.createElement('button');button.type='button';button.textContent=label;button.setAttribute('aria-label',label+' '+name.textContent);
+        button.dataset.moveId=item.id;button.disabled=sourceBusy || sourceHelper.state!=='ready' || !sourceHelper.source_order || index+delta<0 || index+delta>=items.length;
+        button.addEventListener('click',async()=>{
+          const ids=items.map(source=>source.id);[ids[index],ids[index+delta]]=[ids[index+delta],ids[index]];
+          await sourceTask('reorder',{revision:sourceHelper.revision || '',source_list:group,ids});
+          const focus=Array.from(el('source-rows').querySelectorAll('[data-move-id]')).find(control=>control.dataset.moveId===item.id && !control.disabled);focus?.focus();
+        });buttons.append(button);
+      }
+      if(row) {
+        for(const [label,handler] of [['Change',()=>openSource(row)],['Test on TV',()=>sourceTask('test',{id:row.id})],['Remove',()=>{if(confirm('Remove “'+row.name+'” from the source list?'))sourceTask('remove',{revision:sourceHelper.revision || '',id:row.id});}]]){
+          const button=document.createElement('button');button.type='button';button.textContent=label;button.setAttribute('aria-label',label+' '+row.name);button.disabled=sourceBusy;button.addEventListener('click',handler);buttons.append(button);
+        }
+        if(row.edit_path){const link=document.createElement('a');link.textContent='Open in Home Assistant';link.href=row.edit_path;link.target='_top';link.setAttribute('aria-label','Open in Home Assistant for '+row.name);buttons.append(link);}
+      }
+      card.append(name,detail,buttons);el('source-rows').append(card);
     }
-    if(row.edit_path){const link=document.createElement('a');link.textContent='Open in Home Assistant';link.href=row.edit_path;link.target='_top';link.setAttribute('aria-label','Open in Home Assistant for '+row.name);buttons.append(link);}
-    card.append(name,detail,buttons);el('source-rows').append(card);
   }
 }
 function showSources(data) {
@@ -417,7 +434,7 @@ async function sourceTask(operation,body) {
   try {
     const result=await api('api/sources/'+operation,{tv_jid:status.tv_jid,...body});sourceConnected=true;
     if(operation==='test')sourceNotice('Test sent. Check the picture and controls on your TV.');
-    else {sourceHelper=result;sourceNotice(result.error || (operation==='save'?'Source saved.':operation==='remove'?'Source removed.':operation==='restore'?'Previous setup restored.':'TV Support is ready.'));}
+    else {sourceHelper=result;sourceNotice(result.error || (operation==='save'?'Source saved.':operation==='remove'?'Source removed.':operation==='restore'?'Previous setup restored.':operation==='reorder'?'Source order saved.':'TV Support is ready.'));}
     if(operation==='save')el('source-panel').close();
   } catch(error){sourceConnected=false;sourceNotice(error.message);if(el('source-panel').open){el('source-form-error').textContent=error.message;el('source-form-error').hidden=false;}}
   finally{sourceBusy=false;busy=false;showSources(status);}

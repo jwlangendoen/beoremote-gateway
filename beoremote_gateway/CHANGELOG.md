@@ -1,3 +1,11 @@
+# 0.6.0-dev8 — development candidate
+
+- List existing local TV sources and gateway shortcuts under MUSIC and TV.
+- Move sources up or down on the remote, keeping the two lists separate.
+- Restore the previous source order without changing Home Assistant actions.
+- Update TV Support to 0.1.2 for collision-checked native positions and recovery
+  after interrupted writes; protect the source that is currently playing.
+
 # 0.6.0-dev7
 
 - Show the Horizon menu path for USB debugging and steps to reveal Developer options.

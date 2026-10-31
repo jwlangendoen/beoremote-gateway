@@ -291,7 +291,8 @@ class SetupController:
                     await adb.stop_helper(address)
                 await adb.install_helper(address)
                 await adb.start_helper(address)
-                status = await editor.wait_ready(adb, address, jid)
+                version = json.loads(Path(__file__).with_name("helper_apk.json").read_text())["version"]
+                status = await editor.wait_ready(adb, address, jid, version=version)
                 if data["retire_old"]:
                     if not status.get("legacy_trusted"):
                         raise ValueError("The old helper could not be verified. It has been kept.")
@@ -313,6 +314,8 @@ class SetupController:
                 return await editor.save(adb, address, local, jid, data["revision"], data["entry"])
             if operation == "remove":
                 return await editor.remove(adb, address, jid, data["revision"], data["id"])
+            if operation == "reorder":
+                return await editor.reorder(adb, address, jid, data["revision"], data["source_list"], data["ids"])
             if operation == "restore":
                 return await editor.restore(adb, address, jid, data["revision"])
             if operation == "test":

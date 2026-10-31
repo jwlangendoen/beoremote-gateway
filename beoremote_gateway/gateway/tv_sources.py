@@ -155,7 +155,7 @@ class TVSources:
                 row["edit_path"] = "/config/automation/edit/" + automation_id(tv, item["id"])
             rows.append(row)
         # Explicit projection: callback capabilities and TV originals never reach the UI.
-        return {key: status[key] for key in ("state", "error", "revision", "version", "source_lists", "slots", "inputs", "apps", "legacy_trusted", "legacy_sources") if key in status} | {"entries": rows, "can_restore": self.path(tv, True).exists()}
+        return {key: status[key] for key in ("state", "error", "revision", "version", "source_lists", "source_order", "catalog", "slots", "inputs", "apps", "legacy_trusted", "legacy_sources") if key in status} | {"entries": rows, "can_restore": self.path(tv, True).exists()}
 
     async def media_players(self):
         players = []
@@ -175,21 +175,24 @@ class TVSources:
     async def targets(self):
         return {**await self.actions.targets(), "media_players": await self.media_players()}
 
-    async def wait_ready(self, adb, address, tv, operation=None):
+    async def wait_ready(self, adb, address, tv, operation=None, version=None):
         for _ in range(20):
             status = await self.status(adb, address, tv)
             raw = await adb.helper_call(address, "status") if operation else None
             if status.get("state") == "attention":
                 raise ValueError(status.get("error", "TV Support needs attention."))
-            if status.get("state") == "ready" and (not operation or raw.get("operation") == operation):
+            if status.get("state") == "ready" and (version is None or status.get("version") == version) and (not operation or raw.get("operation") == operation):
                 return status
             await asyncio.sleep(.4)
         raise ValueError("TV Support is still working. Refresh its status before trying again.")
 
-    async def apply(self, adb, address, tv, config, expected):
+    async def apply(self, adb, address, tv, config, expected, order_check=None):
         operation = secrets.token_hex(16)
         next_config = {**config, "owner": self.owner, "tv": tv, "revision": config.get("revision") or secrets.token_hex(16)}
-        await adb.helper_call(address, "apply", {"operation": operation, "expected": expected, "config": next_config})
+        request = {"operation": operation, "expected": expected, "config": next_config}
+        if order_check is not None:
+            request["order_check"] = order_check
+        await adb.helper_call(address, "apply", request)
         return await self.wait_ready(adb, address, tv, operation)
 
     async def _set_automation(self, key, config, initial_enabled=True):
@@ -262,7 +265,8 @@ class TVSources:
         private_write(self.path(tv, True), journal)
         if after != before and after is not None:
             await self._set_automation(key, after)
-        config = {"revision": secrets.token_hex(16), "entries": helper_entries(entries)}
+        config = {**{key: backup["config"][key] for key in ("order",) if key in backup["config"]},
+                  "revision": secrets.token_hex(16), "entries": helper_entries(entries)}
         try:
             await self.apply(adb, address, tv, config, revision)
         except Exception as error:
@@ -295,7 +299,7 @@ class TVSources:
         remove_action = before is not None and digest(before) == old.get("action_hash")
         private_write(self.path(tv, True), {"helper": backup["config"], "store": store, "automation_id": key, "before": before, "after": None if remove_action else before, "enabled": await self._enabled(key)})
         entries = [e for e in store["entries"] if e["id"] != entry_id]
-        await self.apply(adb, address, tv, {"entries": helper_entries(entries)}, revision)
+        await self.apply(adb, address, tv, {**{key: backup["config"][key] for key in ("order",) if key in backup["config"]}, "entries": helper_entries(entries)}, revision)
         private_write(self.path(tv), {"entries": entries})
         if remove_action:
             await self._set_automation(key, None)
@@ -307,10 +311,10 @@ class TVSources:
             raise ValueError("No previous source setup is available.")
         backup = json.loads(path.read_text())
         key = backup["automation_id"]
-        current = await self.actions.ha.request("GET", "config/automation/config/" + key)
+        current = await self.actions.ha.request("GET", "config/automation/config/" + key) if key is not None else None
         if current != backup["after"] and current != backup["before"]:
             raise ValueError("The source automation changed in Home Assistant. Review it there before restoring.")
-        if current != backup["before"]:
+        if key is not None and current != backup["before"]:
             await self._set_automation(key, backup["before"], initial_enabled=backup.get("enabled", True))
         config = {**backup["helper"], "revision": secrets.token_hex(16)}
         try:
@@ -325,6 +329,40 @@ class TVSources:
                 pass
             raise ValueError("Restoring was not confirmed. Keep the backup and refresh before trying again.") from error
         private_write(self.path(tv), backup["store"])
+        return await self.status(adb, address, tv)
+
+    async def reorder(self, adb, address, tv, revision, source_list, ids):
+        status = await self.status(adb, address, tv)
+        if status.get("state") != "ready" or status.get("revision", "") != revision:
+            raise ValueError("The TV setup changed or is not ready. Refresh and try again.")
+        if status.get("source_order") is not True:
+            raise ValueError("Update TV Support in Configuration before changing source order.")
+        if status.get("legacy_sources", 0) > 0:
+            raise ValueError("Replace the previous source helper in Configuration before changing source order.")
+        if not isinstance(source_list, str) or source_list not in {"tv", "music"} or not isinstance(ids, list) or len(ids) > 256 or not all(isinstance(i, str) and 1 <= len(i) <= 128 for i in ids):
+            raise ValueError("Choose sources from the current MUSIC or TV list.")
+        current = [row["id"] for row in status.get("catalog", []) if row.get("source_list") == source_list]
+        if len(set(ids)) != len(ids) or set(ids) != set(current):
+            raise ValueError("The source list changed. Refresh before changing its order.")
+        if ids == current:
+            return status
+        store = self.load(tv)
+        backup = await adb.helper_call(address, "backup")
+        config = {**backup["config"], "revision": secrets.token_hex(16),
+                  "order": {**backup["config"].get("order", {}), source_list: ids}}
+        previous = {**backup["config"], "order": {group: [row["id"] for row in status.get("catalog", []) if row.get("source_list") == group] for group in ("tv", "music")}}
+        private_write(self.path(tv, True), {"helper": previous, "store": store,
+                                          "automation_id": None, "before": None, "after": None})
+        try:
+            await self.apply(adb, address, tv, config, revision, {"source_list": source_list, "ids": ids})
+        except Exception as error:
+            try:
+                observed = await adb.helper_call(address, "backup")
+                if observed["config"].get("revision") == config["revision"]:
+                    return await self.status(adb, address, tv)
+            except Exception:
+                pass
+            raise ValueError("The order was not confirmed. Refresh or restore the previous setup before continuing.") from error
         return await self.status(adb, address, tv)
 
     async def refresh(self, adb, address, tv):
