@@ -259,3 +259,21 @@ cancellations, repeated selection, changing launch capability, app-service error
 missing app and unavailable-device timeouts, and a generic player without wake.
 The timeout cases shorten the deadline; the slow-start case really waits beyond
 the previous five-second expiry. Physical device behavior needs a separate test.
+
+## Sources reconnect and local ordering (0.6.0-dev12)
+
+175 Python checks include execution of the browser's local order model with Node
+when available. The model verifies per-list isolation, invalid moves, returning
+to the original order, and reconciliation after uncertain writes or changed
+TV identity, revision and catalog.
+
+Browser verification used a local simulated TV and no household commands:
+returning-user Connect/Try again, heading focus, first-time empty states, working
+sources while button reception is paused, local moves and Cancel with zero writes,
+one Save for multiple moves, independent MUSIC/TV lists, retained drafts after
+refusal, lost-reply recovery without duplicate writes, tab preservation, guarded
+setup changes, and an explicit warning after another tab disables source setup.
+The 390-pixel layout showed no horizontal overflow; movement focus and source
+position announcements were checked in the accessibility tree. This is not a
+claim of full screen-reader or WCAG conformance. The helper and native routing
+are unchanged from the previously verified 0.1.3 version.

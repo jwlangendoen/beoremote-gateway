@@ -14,7 +14,7 @@ section { background:var(--card); border:1px solid var(--line); border-radius:12
 button,a.button { border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--text); padding:10px 16px; font:inherit; cursor:pointer; text-decoration:none; }
 button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
 button:disabled { opacity:.55; cursor:default; }
-button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible { outline:3px solid #00a4cf; outline-offset:3px; }
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible,h2[tabindex]:focus-visible { outline:3px solid #00a4cf; outline-offset:3px; }
 a { color:var(--accent); } .actions,.heading { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
 .heading { justify-content:space-between; margin-bottom:12px; } .heading h2 { margin:0; } .heading p { margin:4px 0 0; }
 .product { display:flex; gap:12px; align-items:flex-start; border:1px solid var(--line); border-radius:8px; padding:14px; margin:10px 0; cursor:pointer; }
@@ -593,7 +593,7 @@ async function connectSources() {
     if(result.state==='authorization_required'){sourceConnectError=true;sourceNotice('Allow the debugging connection on your TV, then try again.');}
     else if(result.state!=='connected'){sourceConnectError=true;sourceNotice('Could not connect. Turn on your TV and check network debugging, then try again.');}
     else{sourceConnected=true;sourceHelper=result.helper || null;el('source-install').hidden=false;el('source-retire').dataset.present=result.legacy_installed?'yes':'';el('source-legacy').hidden=!result.legacy_installed;sourceNotice(sourceHelper?.error || (sourceHelper?'':'Connected. Finish source setup in Configuration.'));}
-  }catch(error){sourceConnected=false;sourceConnectError=true;sourceNotice(error.message);}finally{sourceBusy=false;busy=false;showSources(status);if(activeTab==='sources' && sourceConnected)el('sources-title').focus();}
+  }catch(error){sourceConnected=false;sourceConnectError=true;sourceNotice(error.message);}finally{sourceBusy=false;busy=false;showSources(status);if(activeTab==='sources'){const focus=sourceConnected?el('sources-title'):el('source-connect-here');if(!focus.hidden && !focus.disabled)focus.focus();}}
 }
 el('source-inspect').addEventListener('click',connectSources);
 el('source-connect-here').addEventListener('click',connectSources);
