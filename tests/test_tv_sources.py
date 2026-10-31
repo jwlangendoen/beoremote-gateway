@@ -262,6 +262,17 @@ class EditorTests(unittest.IsolatedAsyncioTestCase):
         await self.editor.restore(self.adb, "192.0.2.10", TV, self.adb.config["revision"])
         self.assertFalse(self.ha.calls)
 
+    async def test_native_order_refusal_keeps_its_actionable_message(self):
+        original = self.adb.helper_call
+        async def refuse(address, method, data=None):
+            if method == "apply":
+                raise ValueError("Switch to another source, then refresh sources before moving the source that is playing.")
+            return await original(address, method, data)
+        self.adb.helper_call = refuse
+        with self.assertRaisesRegex(ValueError, "Switch to another source"):
+            await self.editor.reorder(self.adb, "192.0.2.10", TV, "", "tv", ["HDMI2", "HDMI1"])
+        self.assertNotIn("order", self.adb.config)
+
     async def test_source_save_and_removal_keep_the_saved_order(self):
         await self.editor.reorder(self.adb, "192.0.2.10", TV, "", "tv", ["HDMI2", "HDMI1"])
         result = await self.save()

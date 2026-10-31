@@ -1,3 +1,8 @@
+# 0.6.0-dev9
+
+- Show the helper's actionable reason when a source-order change is refused,
+  including when the source is currently playing.
+
 # 0.6.0-dev8 — development candidate
 
 - List existing local TV sources and gateway shortcuts under MUSIC and TV.

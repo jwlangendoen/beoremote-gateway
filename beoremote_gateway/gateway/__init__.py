@@ -1,2 +1,2 @@
 """Local BeoCore gateway receiver."""
-__version__ = "0.6.0-dev8"
+__version__ = "0.6.0-dev9"
