@@ -1,3 +1,13 @@
+# Native wake candidate (0.6.0-dev13 / TV Support 0.1.4)
+
+A Horizon standby test exposed a source handoff before native wake finished: the TV received the shortcut request, attempted HDMI while still starting, then restored its previous local music source. Wake took over twenty seconds; the helper previously expired after eight seconds. The exact helper exit was not logged in that version.
+
+The candidate waits for native power-on before handoff and gives wake and handoff separate bounded budgets. A different source selection or standby still cancels pending work; the change does not ignore the firmware's source events. In particular, automatic restoration may still cancel a request and needs physical verification.
+
+Offline checks cover a wake longer than twenty seconds, remembered HDMI while asleep, target readiness, cancellation during wake, wake timeout, handoff timeout and bounded diagnostic projection. These checks do not establish a successful hardware fix.
+
+Before accepting this candidate, test standby from both HDMI and a local music app, a different source selected during wake, a repeated shortcut, and a second standby request. Confirm a fresh HA trace as well as the picture. If a request is cancelled, read the bounded helper start events from Sources before changing the policy. No stable release is approved by these offline checks.
+
 # What I've tested
 
 My setup is a Beovision Horizon, a Beoremote One BT and Home Assistant Green.

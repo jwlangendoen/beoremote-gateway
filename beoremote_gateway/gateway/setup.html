@@ -33,6 +33,7 @@ input[type=text],select { display:block; width:100%; margin-top:6px; border:1px 
 .source-choice { display:flex; gap:10px; align-items:center; cursor:pointer; } .source-choice input { accent-color:var(--accent); width:18px; height:18px; }
 #source-steps { margin-top:20px; border-top:1px solid var(--line); padding-top:20px; } #source-note { margin-top:12px; }
 #source-note:empty,#source-config-note:empty { display:none; }
+#source-launch-events { max-height:20rem; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font-size:13px; }
 #source-steps h3 { font-size:18px; margin:0 0 12px; } #source-steps details { margin-bottom:16px; }
 #source-apps { list-style:none; padding:0; margin:16px 0; } #source-apps li { border-top:1px solid var(--line); padding:10px 0; overflow-wrap:anywhere; }
 #source-apps strong,#source-apps small { display:block; }
@@ -126,6 +127,11 @@ dialog::backdrop { background:#0006; } #learn-note { margin-bottom:16px; } #dial
             <summary>Reordering and restoring sources</summary>
             <p>Reorder changes a local preview of one list. Save TV order or Save MUSIC order applies it to the remote; Cancel discards that edit. Moving sources does not open them.</p>
             <p>Restore previous setup restores the source list, order and unchanged linked automations from before the last saved change. Later changes made in Home Assistant are kept.</p>
+          </details>
+          <details id="source-launch-diagnostics" hidden>
+            <summary>Troubleshoot a source that does not open</summary>
+            <p>After trying the source on your remote, choose Refresh sources to read its recent start events. These technical details help diagnose a failed start. They reset when TV Support restarts.</p>
+            <pre id="source-launch-events" tabindex="0" aria-label="Recent source start events"></pre>
           </details>
         </div>
       </div>
@@ -418,13 +424,15 @@ function showSourceEditor() {
   const renderKey=JSON.stringify([sourceHelper,sourceBusy,sourceSaving,sourceConnected,sourceOrderDraft]);
   if(renderKey===sourceRendered)return;sourceRendered=renderKey;
   const ready=sourceConnected && !!sourceHelper && ['ready','attention'].includes(sourceHelper.state);
-  const upgrade=!!sourceHelper && (!(sourceHelper.source_lists || []).includes('music') || !sourceHelper.source_order || !sourceHelper.source_cancel);
+  const upgrade=!!sourceHelper && (!(sourceHelper.source_lists || []).includes('music') || !sourceHelper.source_order || !sourceHelper.source_cancel || !sourceHelper.source_wake_wait);
   el('source-install').hidden=!!sourceHelper && !upgrade && !(sourceHelper.legacy_sources>0);
   el('source-install-button').textContent=upgrade?'Update TV Support':'Install TV Support';
   el('source-install-title').textContent=upgrade?'Update TV Support':'Install TV Support';
   el('source-ready').hidden=!ready;
   el('source-legacy').hidden=!el('source-retire').dataset.present;
   el('source-rows').replaceChildren();
+  el('source-launch-diagnostics').hidden=!sourceHelper?.launch_diagnostics;
+  el('source-launch-events').textContent=sourceHelper?.launch_diagnostics?JSON.stringify(sourceHelper.launch_diagnostics,null,2):'';
   if(!sourceHelper)return;
   const free=(sourceHelper.slots || []).filter(slot=>slot.free).length;
   el('source-slots').textContent=free+' more '+(free===1?'source can':'sources can')+' be added.';

@@ -1,4 +1,4 @@
-# Beoremote Gateway 0.6.0-dev12
+# Beoremote Gateway 0.6.0-dev13
 
 Control Home Assistant with your Beoremote One BT through an Android-based
 Beovision TV. The remote pairs with the TV over Bluetooth; the TV forwards
