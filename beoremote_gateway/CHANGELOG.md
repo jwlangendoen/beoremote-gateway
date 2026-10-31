@@ -1,3 +1,10 @@
+# 0.6.0-dev12
+
+- Connect directly from Sources after the TV and source support have been configured.
+- Reorder TV or MUSIC locally, then save the finished list once or cancel the edit.
+- Keep unsaved order across tabs; preserve and check drafts after refused or uncertain saves.
+- Reduce movement controls in the normal list and improve keyboard focus and status messages.
+
 # 0.6.0-dev11
 
 - Offer the TV Support update when connected-device launch cancellation is missing.

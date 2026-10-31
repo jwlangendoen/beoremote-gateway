@@ -1,4 +1,4 @@
-# Beoremote Gateway 0.6.0-dev11
+# Beoremote Gateway 0.6.0-dev12
 
 The idea is to use Home Assistant a bit like BeoLiving Intelligence: your
 Beoremote One's LIGHT buttons run actions for your home. You need
@@ -34,6 +34,8 @@ Disable any older automation for the same button so one press doesn't run both.
 ## Sources (experimental)
 
 Use **Configuration** to choose your TV and enable **Set up sources**, then **Connect to TV**.
+Once source support is configured, use **Connect** directly in **Sources**
+to load the chosen TV without returning to Configuration.
 Use **Light** for LIGHT buttons and **Sources** for shortcuts. Until a TV is chosen,
 both tabs point to Configuration.
 On Horizon, open **Home → Settings → General settings → Android settings →
@@ -73,11 +75,17 @@ in standby asks Home Assistant to cancel the pending launch. Cancellation uses
 the same local connection and cannot be confirmed if that connection is lost.
 
 **Sources** lists existing local TV sources as well as shortcuts added here,
-grouped under **TV** and **MUSIC**. Use **Move up** or **Move down** to change
-their order on the remote. This needs TV Support 0.1.2 or later; Configuration
+grouped under **TV** and **MUSIC**. Choose **Reorder** beside TV or MUSIC, then use **Move up** or **Move down**
+to arrange a local preview. **Save TV order** or **Save MUSIC order** applies
+the finished list once; **Cancel** discards the local edit. You can reorder
+one list at a time. Tab changes keep the edit; save or cancel before changing
+TV setup or editing sources. This needs TV Support 0.1.2 or later; Configuration
 offers the update. Moving does not select a source or run an HA action. If the
 playing source would move, choose another source first. **Restore previous setup**
-also restores the order from before the last change.
+also restores the order from before the last saved change. If a save is not
+confirmed, **Check TV order** reads the actual TV state before another attempt.
+A preserved draft is applied only to the same TV and unchanged list; an order
+that already matches the TV is accepted without sending it again.
 
 **Save source** adds or updates the shortcut without opening it. **Test on TV**
 selects it and can run its linked HA action. Check the actual picture and remote
