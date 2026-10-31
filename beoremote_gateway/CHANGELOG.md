@@ -1,3 +1,7 @@
+# 0.6.0-dev11
+
+- Offer the TV Support update when connected-device launch cancellation is missing.
+
 # 0.6.0-dev10
 
 - Connect and wake Apple TV through its registered remote before opening an app.

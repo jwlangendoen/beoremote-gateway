@@ -1,4 +1,4 @@
-# Beoremote Gateway 0.6.0-dev10
+# Beoremote Gateway 0.6.0-dev11
 
 The idea is to use Home Assistant a bit like BeoLiving Intelligence: your
 Beoremote One's LIGHT buttons run actions for your home. You need

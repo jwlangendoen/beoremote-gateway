@@ -371,7 +371,7 @@ function showSourceEditor() {
   const ready=!!sourceHelper && ['ready','attention'].includes(sourceHelper.state);
   el('source-editor').hidden=!ready;
   el('source-config-prompt').hidden=ready;
-  const upgrade=!!sourceHelper && (!(sourceHelper.source_lists || []).includes('music') || !sourceHelper.source_order);
+  const upgrade=!!sourceHelper && (!(sourceHelper.source_lists || []).includes('music') || !sourceHelper.source_order || !sourceHelper.source_cancel);
   el('source-install').hidden=!!sourceHelper && !upgrade && !(sourceHelper.legacy_sources>0);
   el('source-install-button').textContent=upgrade?'Update TV Support':'Install TV Support';
   el('source-install-title').textContent=upgrade?'Update TV Support':'Install TV Support';
