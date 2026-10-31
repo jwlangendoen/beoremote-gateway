@@ -104,9 +104,14 @@ dialog::backdrop { background:#0006; } #learn-note { margin-bottom:16px; } #dial
     <div id="source-steps" hidden>
       <div id="source-connect">
         <h3>Connect to your TV</h3>
-        <p>Turn on your TV and enable network debugging (ADB) in its developer settings.</p>
-        <details><summary>Help with network debugging</summary>
-          <p>Enable network ADB on port 5555. USB debugging alone may not enable it; the available settings vary by firmware. Allow the debugging connection on the TV if asked, then connect again.</p>
+        <p>On your Horizon, open <strong>Home → Settings → General settings → Android settings → Developer options</strong> and enable <strong>USB debugging</strong>.</p>
+        <details><summary>Developer options missing, or unable to connect?</summary>
+          <ol>
+            <li>In <strong>Android settings</strong>, open <strong>About → Build</strong>. Select Build seven times with the centre button until developer mode is enabled.</li>
+            <li>Return to <strong>Android settings → Developer options → Debugging</strong> and turn on <strong>USB debugging</strong>.</li>
+            <li>If your firmware also has <strong>Network debugging</strong> or <strong>ADB over network</strong>, enable it. The gateway needs network ADB on port 5555; USB debugging alone may not enable network access.</li>
+            <li>Keep the TV on, choose <strong>Connect to TV</strong> below and allow the debugging connection on the TV if asked.</li>
+          </ol>
         </details>
         <button id="source-inspect" class="primary" type="button">Connect to TV</button>
       </div>
@@ -115,7 +120,6 @@ dialog::backdrop { background:#0006; } #learn-note { margin-bottom:16px; } #dial
         <p>A small background app adds your shortcuts to the MUSIC or TV source list. It has no TV screen. Source setup currently supports Beovision Horizon.</p>
         <div id="source-legacy" hidden>
           <label class="source-choice"><input id="source-retire" type="checkbox">Replace the previous source helper</label>
-          <p class="muted">Its old shortcuts will be removed. Add the sources you want below.</p>
         </div>
         <button id="source-install-button" type="button">Install TV Support</button>
       </div>

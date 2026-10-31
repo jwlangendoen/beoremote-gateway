@@ -1,4 +1,4 @@
-# Beoremote Gateway 0.6.0-dev6
+# Beoremote Gateway 0.6.0-dev7
 
 The idea is to use Home Assistant a bit like BeoLiving Intelligence: your
 Beoremote One's LIGHT buttons run actions for your home. You need
@@ -36,7 +36,14 @@ Disable any older automation for the same button so one press doesn't run both.
 Use **Configuration** to choose your TV and enable **Set up sources**, then **Connect to TV**.
 Use **Light** for LIGHT buttons and **Sources** for shortcuts. Until a TV is chosen,
 both tabs point to Configuration.
-Enable network debugging (ADB) on the TV and allow the connection if asked.
+On Horizon, open **Home → Settings → General settings → Android settings →
+Developer options** and enable **USB debugging**. If Developer options is hidden,
+open **About → Build** in Android settings and select Build seven times with the
+centre button. Some firmware also needs a separate network ADB option; the
+gateway requires port 5555. Allow the connection on the TV if asked.
+
+Menu references: [Horizon user manual](https://bangolufsenassistentgohe.blob.core.windows.net/manuals/TELEVISIONS/BEOVISION_HORIZON/EN_1703_BeoVision_Horizon_EU_v1_3.pdf)
+and [Android TV developer setup](https://developer.android.com/training/tv/get-started/create#run-on-device).
 Ordinary button actions do not need ADB or a TV installation.
 
 Choose **Install TV Support**. This small background app has no TV screen.
