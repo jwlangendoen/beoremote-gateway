@@ -35,7 +35,8 @@ def launch_diagnostics(value):
 
 def helper_entries(entries):
     return [{**{key: entry[key] for key in ("id", "name", "kind", "target", "slot", "callback")},
-             "source_list": entry.get("source_list", "tv"), "cancel_launch": entry.get("launch_cancel", False)} for entry in entries]
+             "source_list": entry.get("source_list", "tv"), "cancel_launch": entry.get("launch_cancel", False),
+             "pause_key": hashlib.sha256(entry["launch_entity"].encode()).hexdigest()[:32] if entry.get("launch_pause") and entry.get("launch_entity") else ""} for entry in entries]
 
 
 def private_write(path, data):
@@ -76,6 +77,15 @@ def automation(tv, entry, webhook):
                      "launch_remote": "{{ (device_entities(device_id(launch_player)) | select('match', '^remote[.]') | select('in', integration_entities('apple_tv')) | list | first | default('')) if launch_player in integration_entities('apple_tv') and device_id(launch_player) else '' }}"}
         remaining = "{{ [0, launch_deadline | float(0) - now().timestamp()] | max }}"
         ready = "{{ states(launch_player) not in ['off', 'standby', 'unknown', 'unavailable'] and (state_attr(launch_player, 'supported_features') | int(0) | bitwise_and(2048)) != 0 and launch_app in (state_attr(launch_player, 'source_list') or []) }}"
+        # Pause is a separate exit notification, never a launch or extra action.
+        # A newer gateway selection suppresses a delayed exit from an older route.
+        newest = "{% set ns = namespace(newer=false) %}{% for item in states.automation %}{% if item.attributes.get('id', '').startswith('beoremote_source_') and item.attributes.get('id') != '" + automation_id(tv, entry["id"]) + "' and as_timestamp(item.attributes.get('last_triggered'), 0) > (trigger.json.get('created_at', 0) | float(0)) %}{% set ns.newer = true %}{% endif %}{% endfor %}{{ not ns.newer }}"
+        pause = [{"delay": {"milliseconds": 250}},
+                 {"if": [{"condition": "template", "value_template": "{{ is_state('" + entity + "', 'playing') and (state_attr('" + entity + "', 'supported_features') | int(0) | bitwise_and(1)) != 0 }}"},
+                         {"condition": "template", "value_template": newest}],
+                  "then": [{"action": "media_player.media_pause", "target": {"entity_id": entity}, "continue_on_error": True}]},
+                 {"stop": "Source input left"}]
+        launch += [{"if": [{"condition": "template", "value_template": "{{ trigger is defined and trigger.platform == 'webhook' and trigger.json.get('pause', false) }}"}], "then": pause}]
         launch += [{"if": [{"condition": "template", "value_template": "{{ trigger is defined and trigger.platform == 'webhook' and trigger.json.get('cancel', false) }}"}],
                     "then": [{"stop": "Source selection cancelled"}]},
                    {"variables": variables},
@@ -191,7 +201,7 @@ class TVSources:
                 row["edit_path"] = "/config/automation/edit/" + automation_id(tv, item["id"])
             rows.append(row)
         # Explicit projection: callback capabilities and TV originals never reach the UI.
-        result = {key: status[key] for key in ("state", "error", "revision", "version", "source_lists", "source_order", "source_cancel", "source_wake_wait", "catalog", "slots", "inputs", "apps", "legacy_trusted", "legacy_sources") if key in status} | {"entries": rows, "can_restore": self.path(tv, True).exists()}
+        result = {key: status[key] for key in ("state", "error", "revision", "version", "source_lists", "source_order", "source_cancel", "source_wake_wait", "source_pause", "catalog", "slots", "inputs", "apps", "legacy_trusted", "legacy_sources") if key in status} | {"entries": rows, "can_restore": self.path(tv, True).exists()}
         if "launch_diagnostics" in status:
             result["launch_diagnostics"] = launch_diagnostics(status["launch_diagnostics"])
         return result
@@ -263,7 +273,7 @@ class TVSources:
         old = next((e for e in store["entries"] if e["id"] == data.get("id")), None)
         entry = validate_entry(data, status, old)
         if entry["launch_entity"]:
-            if not status.get("source_cancel"):
+            if not status.get("source_cancel") or not status.get("source_pause"):
                 raise ValueError("Update TV Support in Configuration before saving a connected-device app.")
             player = next((p for p in await self.media_players() if p["id"] == entry["launch_entity"]), None)
             if player is None or not any(s["id"] == entry["launch_source"] for s in player["sources"]):
@@ -278,7 +288,7 @@ class TVSources:
             if not any(item["id"] == entry["action_target"] for item in targets[GROUPS[entry["action_kind"]]]):
                 raise ValueError("This Home Assistant action is unavailable or needs inputs. Use the Home Assistant editor instead.")
         if old:
-            entry.update({key: old[key] for key in ("webhook", "action_hash", "launch_cancel") if key in old})
+            entry.update({key: old[key] for key in ("webhook", "action_hash", "launch_cancel", "launch_pause") if key in old})
         key = automation_id(tv, entry["id"])
         before = await self.actions.ha.request("GET", "config/automation/config/" + key)
         same_action = old and all(entry.get(field, ENTRY_DEFAULTS.get(field, False)) == old.get(field, ENTRY_DEFAULTS.get(field, False)) for field in ("action_kind", "action_target", "launch_entity", "launch_source", "launch_wake"))
@@ -286,6 +296,8 @@ class TVSources:
             same_action = before == automation(tv, entry, entry.get("webhook", ""))
         if before is not None and (old is None or digest(before) != old.get("action_hash")) and not same_action:
             raise ValueError("This source's automation was edited in Home Assistant. Keep or edit that action there.")
+        if old and before is not None and digest(before) != old.get("action_hash"):
+            entry["launch_pause"] = False
         after = before
         if not same_action:
             if entry["action_kind"] == "none" and not entry["launch_entity"]:
@@ -297,6 +309,7 @@ class TVSources:
                 after = automation(tv, entry, entry["webhook"])
                 entry["action_hash"] = digest(after)
                 entry["launch_cancel"] = bool(entry["launch_entity"])
+                entry["launch_pause"] = bool(entry["launch_entity"])
         elif old and old.get("webhook"):
             entry["webhook"] = old["webhook"]
         callback = f"http://{local}:8123/api/webhook/{entry['webhook']}" if entry.get("webhook") else ""

@@ -1,4 +1,4 @@
-# Beoremote Gateway 0.6.0-dev14
+# Beoremote Gateway 0.6.0-dev15
 
 Control Home Assistant with your Beoremote One BT through an Android-based
 Beovision TV. The remote pairs with the TV over Bluetooth; the TV forwards
@@ -72,6 +72,15 @@ for any action or condition in its normal automation editor.
 Connected-device apps need TV Support 0.1.3 for cancellation during wake-up.
 Update it in Configuration, then re-save an existing app shortcut to update its
 unchanged launch automation. Custom Home Assistant edits and paused actions are kept.
+TV Support 0.1.5 can also pause a configured connected player when you leave its
+HDMI input for another source, including Radio or Spotify, or put the TV in standby.
+Update TV Support and re-save each unchanged connected-device source to enable it.
+A paused, off, unreachable or unsupported player is left alone. Switching between
+apps on the same HDMI input does not pause the player. A delayed exit is ignored
+if a newer gateway source selection has already started. Pause is best effort,
+without wake-up or retries, and depends on the local HA connection. Customized
+source automations are preserved and do not automatically gain exit handling.
+
 On selection, the gateway connects and wakes Apple TV through its registered
 remote and waits up to twenty seconds for the chosen app to become available.
 Other players are woken only when supported. If the device or app stays unavailable,

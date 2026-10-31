@@ -9,11 +9,13 @@ final class ShortcutCatalog {
     static final String[] SUFFIXES={"webmedia","dvd","dvd_2","aux","aux_2","pc","camera","dtv"};
     static volatile Entry[] ALL=new Entry[0];
     static final class Entry {
-        final String source,label,kind,target,callback,sourceList; final int slot,firmwareOrdinal,category; final boolean cancelLaunch;
+        final String source,label,kind,target,callback,sourceList,pauseKey; final int slot,firmwareOrdinal,category; final boolean cancelLaunch;
         Entry(JSONObject j) throws JSONException {
             source=j.getString("id");label=j.getString("name");kind=j.getString("kind");target=j.getString("target");slot=j.getInt("slot");callback=j.optString("callback","");
             sourceList=j.optString("source_list","tv");
             cancelLaunch=j.optBoolean("cancel_launch",false);
+            pauseKey=j.optString("pause_key", "");
+            if(!pauseKey.isEmpty() && (!pauseKey.matches("[a-f0-9]{32}") || !"hdmi".equals(kind) || !cancelLaunch || callback.isEmpty()))throw new JSONException("pause route");
             if(!"tv".equals(sourceList)&&!"music".equals(sourceList))throw new JSONException("source list");
             category="music".equals(sourceList)?3:1;
             if(!source.matches("BGW_[a-f0-9]{12}") || label.trim().length()<1 || label.length()>32 || label.matches("(?s).*[\\p{Cntrl}].*") || slot<0 || slot>=TYPES.length)throw new JSONException("entry");

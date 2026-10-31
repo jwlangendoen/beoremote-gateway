@@ -55,11 +55,36 @@ public final class LaunchGateTest {
         gate.cancel();check(gate.begin("BGW_123456789abc",true,400000));generation=gate.generation;
         check(gate.next(generation,430000,"SPOTIFY",true,false)==LaunchGate.Next.START_TARGET);
         check(gate.next(generation,438000,"SPOTIFY",true,false)==LaunchGate.Next.NONE);
+        // Exit ownership is independent of the 25-second launch-cancellation window.
+        ShortcutCatalog.Entry netflix=new ShortcutCatalog.Entry("BGW_123456789abc","hdmi","HDMI1","player-a");
+        ShortcutCatalog.Entry youtube=new ShortcutCatalog.Entry("BGW_abcdef123456","hdmi","HDMI1","player-a");
+        ShortcutCatalog.ALL=new ShortcutCatalog.Entry[]{netflix,youtube};
+        gate.playbackDispatched(youtube,100);
+        check(gate.takePause("TUNEIN",true,100,false)==null); // Stale queued event.
+        check(gate.takePause(netflix.source,true,101,false)==null); // App on same input.
+        check(gate.takePause("HDMI1",true,102,false)==null); // Native handoff on same input.
+        check(gate.takePause("TUNEIN",true,100000,false)==youtube); // Radio, even much later.
+        check(gate.takePause("APPLICATION",true,100001,false)==null); // Once only.
+        gate.playbackDispatched(netflix,200000);
+        check(gate.takePause("SPOTIFY",true,200001,false)==netflix);
+        gate.playbackDispatched(netflix,300000);
+        check(gate.takePause("",true,300001,true)==netflix); // Standby pauses without waking.
+        gate.rememberPlayback("HDMI1",400000); // Restored helper / direct HDMI selection.
+        check(gate.takePause("HDMI2",true,400001,false)!=null);
+        gate.rememberPlayback("HDMI1",500000);
+        check(gate.takePause("HDMI1",false,500001,false)!=null); // Another product.
+        ShortcutCatalog.Entry ambiguous=new ShortcutCatalog.Entry("BGW_000000000000","hdmi","HDMI1","other-player");
+        ShortcutCatalog.ALL=new ShortcutCatalog.Entry[]{netflix,ambiguous};
+        gate.rememberPlayback("HDMI1",600000);
+        check(gate.takePause("TUNEIN",true,600001,false)==null); // Do not guess a device.
+        ShortcutCatalog.Entry legacy=new ShortcutCatalog.Entry("BGW_000000000000","hdmi","HDMI1");
+        gate.playbackDispatched(legacy,700000);
+        check(gate.takePause("TUNEIN",true,700001,false)==null); // Old callbacks cannot receive exit events.
         System.out.println("TV helper: identities, HDMI handoff, app routing, duplicates, cancellation and expiry passed.");
     }
 }
 class ShortcutCatalog {
     static Entry[] ALL;
-    static final class Entry {final String source,kind,target;final boolean cancelLaunch=true;Entry(String s,String k,String t){source=s;kind=k;target=t;}}
+    static final class Entry {final String source,kind,target,pauseKey;final boolean cancelLaunch=true;Entry(String s,String k,String t){this(s,k,t,"");}Entry(String s,String k,String t,String p){source=s;kind=k;target=t;pauseKey=p;}}
     static Entry forSource(String s){for(Entry e:ALL)if(e.source.equals(s))return e;return null;}
 }

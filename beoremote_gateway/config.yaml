@@ -1,6 +1,6 @@
 name: Beoremote Gateway
 description: Control Home Assistant with Beoremote One BT through an Android-based Beovision TV. Tested with Horizon.
-version: "0.6.0-dev14"
+version: "0.6.0-dev15"
 slug: beoremote_gateway
 url: https://github.com/jwlangendoen/beoremote-gateway
 arch:

@@ -1,3 +1,10 @@
+# 0.6.0-dev15
+
+- Pause a connected media player when the TV leaves its configured HDMI input or enters standby, if that player is playing and supports pause.
+- Keep playback running when switching apps on the same HDMI input. Ignore stale exit events and suppress delayed pauses after a newer source selection.
+- Update TV Support to 0.1.5. Re-save unchanged connected-device sources to enable exit handling; customized HA automations are preserved.
+- Local Spotify and Radio remain independent of Home Assistant.
+
 # 0.6.0-dev14
 
 - When the active source prevents reordering, explain which other source list to use before checking and saving again. Keep the unsaved order.
