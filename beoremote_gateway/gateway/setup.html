@@ -517,9 +517,13 @@ function acceptSourceHelper(result) {
   if(sourceOrderDraft){reconciliation=sourceOrderDraft.reconcile(sourceTV,result);if(reconciliation!=='retained')sourceOrderDraft=null;}
   sourceHelper=result;sourceConnected=true;return reconciliation;
 }
-function sourceOrderError(message) {
+function sourceOrderError(message,group) {
   if(message==='The order was not confirmed. Refresh or restore the previous setup before continuing.')return 'The TV did not confirm this save. Choose Check TV order before trying again.';
-  return message==='Switch to another source, then refresh sources before moving the source that is playing.'?'Switch to another source on your TV, then choose Check TV order.':message;
+  if(message==='Switch to another source, then refresh sources before moving the source that is playing.'){
+    const other=group==='music'?'TV':'MUSIC';
+    return 'A source you are moving is still active. Select a source outside the '+group.toUpperCase()+' list (from '+other+'), then choose Check TV order and save again. Your changes are kept.';
+  }
+  return message;
 }
 async function saveSourceOrder() {
   const draft=sourceOrderDraft;
@@ -529,7 +533,7 @@ async function saveSourceOrder() {
     const result=await api('api/sources/reorder',{tv_jid:draft.tv,revision:draft.revision,source_list:draft.group,ids:[...draft.ids]});
     if(sourceTV===draft.tv){sourceHelper=result;sourceConnected=true;sourceOrderDraft=null;sourceNotice(draft.group.toUpperCase()+' order saved.');}
   } catch(error) {
-    if(sourceOrderDraft===draft){draft.needsRefresh=true;draft.error=sourceOrderError(error.message);sourceNotice('The TV has not confirmed the order. Check TV order before saving again.');}
+    if(sourceOrderDraft===draft){draft.needsRefresh=true;draft.error=sourceOrderError(error.message,draft.group);sourceNotice(draft.error);}
   } finally {
     sourceBusy=false;busy=false;showSources(status);
     if(sourceOrderDraft?.needsRefresh)el('source-order-check')?.focus();else if(!sourceOrderDraft)el('source-reorder-'+draft.group)?.focus();

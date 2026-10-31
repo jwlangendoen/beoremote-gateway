@@ -1,3 +1,9 @@
+# 0.6.0-dev14
+
+- When the active source prevents reordering, explain which other source list to use before checking and saving again. Keep the unsaved order.
+- Clarify that switching apps on the same HDMI device does not change the active TV input.
+- Gateway UI update only; no TV Support update required.
+
 # 0.6.0-dev13 — native wake candidate
 
 - Wait for native TV power-on before starting the source handoff; allow up to 45 seconds for wake, then eight seconds for handoff.
