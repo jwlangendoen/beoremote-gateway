@@ -291,7 +291,8 @@ class SetupController:
                     await adb.stop_helper(address)
                 await adb.install_helper(address)
                 await adb.start_helper(address)
-                status = await editor.wait_ready(adb, address, jid)
+                version = json.loads(Path(__file__).with_name("helper_apk.json").read_text())["version"]
+                status = await editor.wait_ready(adb, address, jid, version=version)
                 if data["retire_old"]:
                     if not status.get("legacy_trusted"):
                         raise ValueError("The old helper could not be verified. It has been kept.")

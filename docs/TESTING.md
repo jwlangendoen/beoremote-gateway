@@ -227,7 +227,7 @@ or actions worked.
 
 ## Complete source ordering (0.6.0-dev8)
 
-- 168 Python regressions pass, including complete-list permutation validation,
+- 169 Python regressions pass, including complete-list permutation validation,
   MUSIC/TV isolation, first-reorder restore, unchanged source routes and custom/
   paused HA actions, uncertain replies, helper capability gates and current-TV/
   administrator/page-token checks.

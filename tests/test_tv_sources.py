@@ -238,6 +238,12 @@ class EditorTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError, "Update TV Support"):
             await self.editor.reorder(self.adb, "192.0.2.10", TV, "", "tv", ["HDMI2", "HDMI1"])
 
+    async def test_helper_update_waits_for_the_new_version_instead_of_cached_ready(self):
+        self.editor.status = AsyncMock(side_effect=[{"state": "ready", "version": "0.1.1"}, {"state": "ready", "version": "0.1.2"}])
+        status = await self.editor.wait_ready(self.adb, "192.0.2.10", TV, version="0.1.2")
+        self.assertEqual(status["version"], "0.1.2")
+        self.assertEqual(self.editor.status.await_count, 2)
+
     async def test_uncertain_order_reply_is_reconciled_or_can_be_restored(self):
         self.adb.failure = "after"
         result = await self.editor.reorder(self.adb, "192.0.2.10", TV, "", "tv", ["HDMI2", "HDMI1"])

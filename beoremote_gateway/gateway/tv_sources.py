@@ -175,13 +175,13 @@ class TVSources:
     async def targets(self):
         return {**await self.actions.targets(), "media_players": await self.media_players()}
 
-    async def wait_ready(self, adb, address, tv, operation=None):
+    async def wait_ready(self, adb, address, tv, operation=None, version=None):
         for _ in range(20):
             status = await self.status(adb, address, tv)
             raw = await adb.helper_call(address, "status") if operation else None
             if status.get("state") == "attention":
                 raise ValueError(status.get("error", "TV Support needs attention."))
-            if status.get("state") == "ready" and (not operation or raw.get("operation") == operation):
+            if status.get("state") == "ready" and (version is None or status.get("version") == version) and (not operation or raw.get("operation") == operation):
                 return status
             await asyncio.sleep(.4)
         raise ValueError("TV Support is still working. Refresh its status before trying again.")
