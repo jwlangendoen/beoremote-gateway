@@ -147,7 +147,7 @@ the playing source while keeping source routing available.
 
 ## Automatic registration recovery
 
-TV Support 0.1.6 checks its saved registrations with an inexact, non-waking
+TV Support 0.1.7 checks its saved registrations with an inexact, non-waking
 Android alarm, nominally once per minute. The alarm survives ordinary process
 termination; Android can batch checks, especially in standby. Boot and package
 replacement recreate the alarm. No ADB or HA request is needed for these checks.
@@ -160,7 +160,8 @@ restores this helper's saved entries and their visibility, retains owner/revisio
 callbacks and settings, and refuses occupied aliases or changed identities.
 Healthy checks do not rewrite native settings or unchanged preferences. Checks
 wait during a source handoff. Restoring the order of an active input is deferred
-until that input can keep playing safely; the UI reports the deferred order.
+until it is no longer active. The other list repairs independently, so two scrambled
+lists do not block each other. The UI reports any deferred order.
 
 Connect and Refresh sources read a fresh inventory. Refresh also reconciles saved
 shortcuts and republishes even an unchanged list to the remote. Repair never

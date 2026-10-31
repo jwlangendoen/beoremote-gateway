@@ -214,18 +214,15 @@ public class SupportService extends Service {
             else{v.put("source_pid",productRow);v.put("source_name",e.source);v.put("source_type",e.firmwareOrdinal);v.put("is_active",0);v.put("is_use",1);v.put("profile","");v.put("source_ir_key",0);v.put("signal_sensed",1);v.put("cp_scheme",8);if(getContentResolver().insert(SOURCES,v)==null)throw new Exception("insert");}changed=true;
         }
         orderDeferred=false;
-        try{changed|=ordering.apply(next,activeSource());}
-        catch(IllegalStateException error){
-            // Background repair must keep routing available while a source is playing.
-            // Explicit edits still require the active source to keep its position.
-            if(!"active source position".equals(error.getMessage())||!next.optString("revision","").equals(config().optString("revision","")))throw error;
-            orderDeferred=true;
-        }
+        if(next.optString("revision","").equals(config().optString("revision",""))){
+            // Restore the inactive list even when the playing list must be deferred.
+            SourceOrderPlan.Repair repair=ordering.repair(next,activeSource());changed|=!repair.moves.isEmpty();orderDeferred=repair.deferred;
+        }else changed|=ordering.apply(next,activeSource());
         if(next.optString("revision","").equals(config().optString("revision","")))ordering.recover(next);
         ControlProvider.write(this,"originals",originals);if(changed||recovered)publish();
     }
     void capabilities()throws Exception{synchronized(ControlProvider.LOCK){
-        JSONObject state=ControlProvider.read(this,"status","{}");if(!"working".equals(state.optString("state"))&&!"attention".equals(state.optString("state")))state.put("state","ready");state.put("tv",productId);state.put("version","0.1.6");state.put("source_lists",new JSONArray().put("tv").put("music"));state.put("source_wake_wait",true).put("source_pause",true).put("source_repair",true).put("source_order_deferred",orderDeferred);state.put("source_order",true).put("catalog",new SourceOrder(this,SOURCES,productRow).catalog());
+        JSONObject state=ControlProvider.read(this,"status","{}");if(!"working".equals(state.optString("state"))&&!"attention".equals(state.optString("state")))state.put("state","ready");state.put("tv",productId);state.put("version","0.1.7");state.put("source_lists",new JSONArray().put("tv").put("music"));state.put("source_wake_wait",true).put("source_pause",true).put("source_repair",true).put("source_order_deferred",orderDeferred);state.put("source_order",true).put("catalog",new SourceOrder(this,SOURCES,productRow).catalog());
         JSONArray slots=new JSONArray(),inputs=new JSONArray(),apps=new JSONArray();
         boolean legacyTrusted=false;try{PackageInfo info=getPackageManager().getPackageInfo("nl.johan.horizonappletv",PackageManager.GET_SIGNATURES);byte[] hash=java.security.MessageDigest.getInstance("SHA-256").digest(info.signatures[0].toByteArray());StringBuilder hex=new StringBuilder();for(byte b:hash)hex.append(String.format(java.util.Locale.ROOT,"%02x",b&255));legacyTrusted=info.versionCode>=108&&"6ce62474011f288bed0a822e0c8587a83c05d3dec19226a19e6002e619979921".equals(hex.toString());}catch(Exception ignored){}
         int legacySources=0;Set<String> legacyNames=new HashSet<>(Arrays.asList("ATV_NETFLIX","ATV_YOUTUBE","ATV_PLUS","ATV_PRIME","ATV_SVT","ATV_HBO","ATV_F1_TV","ATV_NLZIET"));

@@ -20,6 +20,7 @@ public final class SourceRecoveryTest {
         final List<Map<String,Object>> rows=new ArrayList<>();final Map<String,String> settings=new HashMap<>();long sid=20;int writes,settingsWrites;
         MemoryProvider(){
             rows.add(row("sid",10L,"source_pid",1L,"source_name","HDMI2","source_type",5,"category",1,"is_use",1,"is_active",1,"signal_sensed",1,"source_friendly_name","HDMI"));
+            rows.add(row("sid",11L,"source_pid",1L,"source_name","LINE_IN","source_type",8,"category",3,"is_use",1,"is_active",0,"signal_sensed",1,"source_friendly_name","Line in"));
             rows.add(row("sid",200L,"source_pid",2L,"source_name","FOREIGN","source_type",12,"category",1,"is_use",1,"is_active",0,"signal_sensed",1,"source_friendly_name","Other TV"));
             for(String suffix:ShortcutCatalog.SUFFIXES){settings.put("sourcelist_"+suffix+"_friendly_name",suffix);settings.put("sourcelist_"+suffix+"_beoremote_list","none");}
         }
@@ -61,7 +62,7 @@ public final class SourceRecoveryTest {
     static JSONObject config(){
         JSONArray entries=new JSONArray();int i=0;
         for(String id:new String[]{A,B,C}){boolean music=++i==3;entries.put(new JSONObject().put("id",id).put("name",music?"Audio":"App "+i).put("kind",music?"app":"hdmi").put("target",music?"org.example.audio":"HDMI2").put("slot",i-1).put("source_list",music?"music":"tv"));}
-        return new JSONObject().put("owner","aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").put("revision","bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb").put("tv",TV).put("entries",entries).put("order",new JSONObject().put("tv",new JSONArray().put(A).put(B).put("HDMI2")).put("music",new JSONArray().put(C)));
+        return new JSONObject().put("owner","aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").put("revision","bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb").put("tv",TV).put("entries",entries).put("order",new JSONObject().put("tv",new JSONArray().put(A).put(B).put("HDMI2")).put("music",new JSONArray().put(C).put("LINE_IN")));
     }
     public static void main(String[] args)throws Exception{
         MemoryProvider provider=new MemoryProvider();SharedPreferences storage=new SharedPreferences();AlarmManager alarms=new AlarmManager();
@@ -74,6 +75,7 @@ public final class SourceRecoveryTest {
         for(String id:new String[]{A,B,C})check(provider.source(id)!=null,"missing saved shortcut restored: "+id);
         check(helper.publications==1,"restored catalog published to remote");
         check(provider.source("HDMI2").get("sid").equals(10L),"active HDMI position retained during playback");
+        check(SourceOrderPlan.group(new SourceOrder(helper,SupportService.SOURCES,1).rows(),1,3).get(0).source.equals(C),"inactive MUSIC order repairs even when the active TV input would move");
         check(provider.source("FOREIGN").get("sid").equals(200L),"other product untouched");
         check(ControlProvider.read(helper,"status","{}").getBoolean("source_order_deferred"),"deferred order is reported instead of interrupting playback");
         check(storage.getString("config","").equals(saved),"repair retains revision, names, targets and saved order");
