@@ -29,7 +29,7 @@ public final class SupportService extends Service {
             if(productId==null||!productId.matches("[0-9]{4}\\.[0-9]+\\.[0-9]+@products\\.bang-olufsen\\.com"))throw new Exception("identity");
             try(Cursor c=getContentResolver().query(PRODUCTS,new String[]{"pid"},"product_id=?",new String[]{productId},null)){if(c==null||!c.moveToFirst())throw new Exception("product");productRow=c.getLong(0);}
             JSONObject config=config();ShortcutCatalog.ALL=ShortcutCatalog.parse(config);if(config.has("tv")&&!productId.equals(config.getString("tv")))throw new Exception("wrong TV");
-            if(pending!=null){Intent p=pending;pending=null;receive(p);}else reconcile(config,config);capabilities();
+            if(pending!=null){Intent p=pending;pending=null;receive(p);}else reconcile(config,config);gate.rememberPlayback(activeSource(),SystemClock.elapsedRealtime());capabilities();
         }catch(Exception|LinkageError e){nativeService=null;ShortcutCatalog.ALL=new ShortcutCatalog.Entry[0];gate.cancel();failed("TV source support is unavailable on this firmware.");}});}
         public void onServiceDisconnected(ComponentName n){worker.post(()->{nativeService=null;gate.cancel();});}
     };
@@ -75,7 +75,7 @@ public final class SupportService extends Service {
                     cancelLaunch("",false,SystemClock.elapsedRealtime(),true);gate.cancel();configuredAt=SystemClock.elapsedRealtime();
                     JSONObject attempt=ControlProvider.read(this,"attempt","{\"entries\":[]}");
                     JSONObject previous=union(old,attempt);ControlProvider.write(this,"attempt",next);
-                    try{reconcile(next,previous);ControlProvider.write(this,"config",next);ordering.recover(next);ShortcutCatalog.ALL=ShortcutCatalog.parse(next);ControlProvider.write(this,"attempt",new JSONObject().put("entries",new JSONArray()));}
+                    try{reconcile(next,previous);ControlProvider.write(this,"config",next);ordering.recover(next);ShortcutCatalog.ALL=ShortcutCatalog.parse(next);gate.rememberPlayback(activeSource(),SystemClock.elapsedRealtime());ControlProvider.write(this,"attempt",new JSONObject().put("entries",new JSONArray()));}
                     catch(Exception error){
                         // A cleanup failure after commit must not undo committed native order.
                         if(!next.getString("revision").equals(config().optString("revision",""))){try{reconcile(old,union(next,attempt));ControlProvider.write(this,"attempt",new JSONObject().put("entries",new JSONArray()));}catch(Exception rollback){failed("Source change failed. Restore the previous setup before continuing.");}}
@@ -92,12 +92,14 @@ public final class SupportService extends Service {
             }catch(Exception|LinkageError e){failed("active source position".equals(e.getMessage())?"Switch to another source, then refresh sources before moving the source that is playing.":"The TV change was not confirmed. Check the TV and refresh before trying again.");}}
             return;
         }
-        if("beo.intent.action.POWER_STATE_CHANGE".equals(action)){int s=intent.getIntExtra("STATE",-1);if(s==4||s==5||s==6){cancelLaunch("",false,intent.getLongExtra(SourceReceiver.RECEIVED_AT,SystemClock.elapsedRealtime()),true);gate.cancel();}launchTrace("power_event", "", s);return;}
+        if("beo.intent.action.POWER_STATE_CHANGE".equals(action)){int s=intent.getIntExtra("STATE",-1);if(s==4||s==5||s==6){cancelLaunch("",false,intent.getLongExtra(SourceReceiver.RECEIVED_AT,SystemClock.elapsedRealtime()),true);gate.cancel();}if(s==4||s==5||s==6)pausePlayback("",true,intent.getLongExtra(SourceReceiver.RECEIVED_AT,SystemClock.elapsedRealtime()),true);launchTrace("power_event", "", s);return;}
         try{Object source=intent.getParcelableExtra("source_name_product_id");if(source==null||productId==null)return;String name=(String)source.getClass().getMethod("getName").invoke(source),owner=(String)source.getClass().getMethod("getProductId").invoke(source);boolean local=productId.equals(owner);
             if("beo.intent.action.source_changed".equals(action)){gate.completed(name,local);launchTrace("source_changed",local?name:"other_product",powerState());return;}
             if("beo.intent.action.source_change_begin".equals(action)){
                 if(intent.getLongExtra(SourceReceiver.RECEIVED_AT,0)<configuredAt)return;
                 cancelLaunch(name,local,intent.getLongExtra(SourceReceiver.RECEIVED_AT,SystemClock.elapsedRealtime()),false);
+                pausePlayback(name,local,intent.getLongExtra(SourceReceiver.RECEIVED_AT,SystemClock.elapsedRealtime()),false);
+                if(local)gate.rememberPlayback(name,intent.getLongExtra(SourceReceiver.RECEIVED_AT,SystemClock.elapsedRealtime()));
                 if(gate.begin(name,local,intent.getLongExtra(SourceReceiver.RECEIVED_AT,SystemClock.elapsedRealtime()))){launchTrace("source_requested",name,powerState());long generation=gate.generation;worker.post(()->advance(generation));}else{gate.selected(name,local);launchTrace("source_selected",local?name:"other_product",powerState());}
             }
         }catch(Exception|LinkageError e){gate.cancel();}
@@ -105,6 +107,11 @@ public final class SupportService extends Service {
     void cancelLaunch(String name,boolean local,long received,boolean standby){
         ShortcutCatalog.Entry previous=gate.takeCancellation(name,local,received,standby);
         if(previous!=null)try{WebhookClient.send(previous.callback,previous.source,productId,true);}catch(Exception error){Log.w(TAG,"Source cancellation was not confirmed; not retried.");}
+    }
+    void pausePlayback(String name,boolean local,long received,boolean standby){
+        ShortcutCatalog.Entry previous=gate.takePause(name,local,received,standby);
+        if(previous!=null)try{WebhookClient.pause(previous.callback,previous.source,productId);launchTrace("pause_delivered",previous.target,powerState());}
+        catch(Exception error){launchTrace("pause_failed",previous.target,powerState());Log.w(TAG,"Source pause was not confirmed; not retried.");}
     }
     void advance(long generation){
         if(closed)return;
@@ -119,7 +126,7 @@ public final class SupportService extends Service {
             else if(next==LaunchGate.Next.SEND_REQUEST||next==LaunchGate.Next.COMPLETE_DUPLICATE){
                 if(next==LaunchGate.Next.SEND_REQUEST){ShortcutCatalog.Entry e=gate.shortcut;
                     if("app".equals(e.kind)){Intent launch=launchIntent(e.target);if(launch==null)throw new Exception("app removed");launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);startActivity(launch);}
-                    gate.dispatched(SystemClock.elapsedRealtime());WebhookClient.send(e.callback,e.source,productId);
+                    long sentAt=SystemClock.elapsedRealtime();gate.dispatched(sentAt);WebhookClient.send(e.callback,e.source,productId);gate.playbackDispatched(e,sentAt);
                 }gate.delivered(SystemClock.elapsedRealtime());launchTrace("delivered",current,powerState());return;
             }
             worker.postDelayed(()->advance(generation),gate.delay(SystemClock.elapsedRealtime()));
@@ -192,7 +199,7 @@ public final class SupportService extends Service {
         ControlProvider.write(this,"originals",originals);if(changed||recovered)publish();
     }
     void capabilities()throws Exception{synchronized(ControlProvider.LOCK){
-        JSONObject state=ControlProvider.read(this,"status","{}");if(!"working".equals(state.optString("state"))&&!"attention".equals(state.optString("state")))state.put("state","ready");state.put("tv",productId);state.put("version","0.1.4");state.put("source_lists",new JSONArray().put("tv").put("music"));state.put("source_wake_wait",true);state.put("source_order",true).put("catalog",new SourceOrder(this,SOURCES,productRow).catalog());
+        JSONObject state=ControlProvider.read(this,"status","{}");if(!"working".equals(state.optString("state"))&&!"attention".equals(state.optString("state")))state.put("state","ready");state.put("tv",productId);state.put("version","0.1.5");state.put("source_lists",new JSONArray().put("tv").put("music"));state.put("source_wake_wait",true).put("source_pause",true);state.put("source_order",true).put("catalog",new SourceOrder(this,SOURCES,productRow).catalog());
         JSONArray slots=new JSONArray(),inputs=new JSONArray(),apps=new JSONArray();
         boolean legacyTrusted=false;try{PackageInfo info=getPackageManager().getPackageInfo("nl.johan.horizonappletv",PackageManager.GET_SIGNATURES);byte[] hash=java.security.MessageDigest.getInstance("SHA-256").digest(info.signatures[0].toByteArray());StringBuilder hex=new StringBuilder();for(byte b:hash)hex.append(String.format(java.util.Locale.ROOT,"%02x",b&255));legacyTrusted=info.versionCode>=108&&"6ce62474011f288bed0a822e0c8587a83c05d3dec19226a19e6002e619979921".equals(hex.toString());}catch(Exception ignored){}
         int legacySources=0;Set<String> legacyNames=new HashSet<>(Arrays.asList("ATV_NETFLIX","ATV_YOUTUBE","ATV_PLUS","ATV_PRIME","ATV_SVT","ATV_HBO","ATV_F1_TV","ATV_NLZIET"));

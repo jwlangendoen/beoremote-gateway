@@ -50,7 +50,7 @@ async def main():
                 raise HomeAssistantError("Virtual launch failure")
 
         for domain, names in {"remote": ["turn_on", "send_command"],
-                              "media_player": ["turn_on", "select_source"], "scene": ["turn_on"]}.items():
+                              "media_player": ["turn_on", "select_source", "media_pause"], "scene": ["turn_on"]}.items():
             for name in names:
                 hass.services.async_register(domain, name, service)
         assert await async_from_config_dict({"homeassistant": {"country": "NL", "time_zone": "Europe/Amsterdam", "latitude": 0, "longitude": 0}}, hass)
@@ -78,7 +78,7 @@ async def main():
         short = copy.deepcopy(config)
         short.update(id="beoremote_source_" + "b" * 20, alias="Fixture short deadline")
         short["triggers"][0]["webhook_id"] = "b" * 64
-        short["actions"][2]["variables"]["launch_deadline"] = "{{ now().timestamp() + 0.3 }}"
+        next(a["variables"] for a in short["actions"] if "variables" in a)["launch_deadline"] = "{{ now().timestamp() + 0.3 }}"
         generic = automation(TV, {"id": "BGW_abcdefabcdef", "name": "Fixture generic", "action_kind": "none",
                               "action_target": "", "launch_entity": "media_player.generic",
                               "launch_source": "Game", "launch_wake": False}, "c" * 64)
@@ -92,7 +92,7 @@ async def main():
         # Domain setup during validation registers its normal entity services.
         # Replace only device-facing services with virtual recorders afterwards.
         for domain, names in {"remote": ["turn_on", "send_command"],
-                              "media_player": ["turn_on", "select_source"], "scene": ["turn_on"]}.items():
+                              "media_player": ["turn_on", "select_source", "media_pause"], "scene": ["turn_on"]}.items():
             for name in names:
                 hass.services.async_register(domain, name, service)
         entity = next(e for e in hass.data["automation"].entities if e.unique_id == config["id"])
@@ -174,6 +174,39 @@ async def main():
         assert selected() == ["Netflix"]
         checks.append("app_name_without_launch_capability_is_not_ready")
 
+        # A completed external source must be paused, never re-opened, on exit.
+        calls.clear()
+        player("playing", features=2177)
+        await fire(pause=True)
+        assert [name for name, _ in calls] == ["media_player.media_pause"], calls
+        checks.append("leaving_external_input_pauses_without_launch_wake_or_extra_scene")
+        for state, features in (("paused",2177),("off",2177),("unavailable",2177),("playing",2176)):
+            calls.clear();player(state,features=features)
+            await fire(pause=True)
+            assert not calls, calls
+        checks.append("exit_does_not_wake_or_toggle_paused_off_unavailable_or_unsupported_players")
+        for payload in ({"created_at":0},{"tv":"other"},{"source":"BGW_abcdefabcdef"}):
+            calls.clear();player("playing",features=2177)
+            await fire(pause=True,**payload)
+            assert not calls
+        checks.append("foreign_and_stale_exit_notifications_are_ignored")
+        # A newer selection invalidates a delayed exit even across source automations.
+        calls.clear();player("playing",features=2177)
+        leave=asyncio.create_task(fire(pause=True))
+        await asyncio.sleep(.05)
+        hass.states.async_set("automation.newer_gateway_source","on",{"id":"beoremote_source_"+"d"*20,"last_triggered":datetime.now(UTC)})
+        await leave
+        assert not calls
+        hass.states.async_remove("automation.newer_gateway_source")
+        checks.append("newer_source_selection_suppresses_delayed_exit")
+        # Reselecting this app restarts its automation, cancelling its pending pause.
+        calls.clear();player("playing",features=2177)
+        leave=asyncio.create_task(fire(pause=True));await asyncio.sleep(.05)
+        await fire();await asyncio.gather(leave,return_exceptions=True)
+        assert not any(name=="media_player.media_pause" for name,_ in calls)
+        assert selected()==["Netflix"]
+        checks.append("reselecting_app_cancels_pending_exit_without_pausing_new_playback")
+        player()
         fail_launch = True
         calls.clear()
         await fire()

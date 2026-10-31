@@ -221,7 +221,7 @@ dialog::backdrop { background:#0006; } #learn-note { margin-bottom:16px; } #dial
     <div id="source-device-fields" hidden>
       <label class="field" for="source-device">Device in Home Assistant<select id="source-device"></select></label>
       <label class="field" for="source-device-app">App or source<select id="source-device-app"></select></label>
-      <p id="source-device-note" class="muted">Choose the device connected to this HDMI input, such as an Apple TV. Apps and sources come from Home Assistant.</p>
+      <p id="source-device-note" class="muted">Choose the device connected to this HDMI input, such as an Apple TV. Apps and sources come from Home Assistant. Playback pauses when you leave this input, if the device supports pause.</p>
     </div>
     <label class="field" for="source-action">Also run a Home Assistant action<select id="source-action"><option value="none">None</option><option value="scene">Activate a scene</option><option value="light_off">Turn off lights</option><option value="script">Run a script</option><option value="custom">Choose in Home Assistant</option></select></label>
     <label id="source-ha-field" class="field" for="source-ha-target">Choose action<select id="source-ha-target"></select></label>
@@ -424,7 +424,7 @@ function showSourceEditor() {
   const renderKey=JSON.stringify([sourceHelper,sourceBusy,sourceSaving,sourceConnected,sourceOrderDraft]);
   if(renderKey===sourceRendered)return;sourceRendered=renderKey;
   const ready=sourceConnected && !!sourceHelper && ['ready','attention'].includes(sourceHelper.state);
-  const upgrade=!!sourceHelper && (!(sourceHelper.source_lists || []).includes('music') || !sourceHelper.source_order || !sourceHelper.source_cancel || !sourceHelper.source_wake_wait);
+  const upgrade=!!sourceHelper && (!(sourceHelper.source_lists || []).includes('music') || !sourceHelper.source_order || !sourceHelper.source_cancel || !sourceHelper.source_wake_wait || !sourceHelper.source_pause);
   el('source-install').hidden=!!sourceHelper && !upgrade && !(sourceHelper.legacy_sources>0);
   el('source-install-button').textContent=upgrade?'Update TV Support':'Install TV Support';
   el('source-install-title').textContent=upgrade?'Update TV Support':'Install TV Support';

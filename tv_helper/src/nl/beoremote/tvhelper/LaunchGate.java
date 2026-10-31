@@ -22,6 +22,37 @@ final class LaunchGate {
     ShortcutCatalog.Entry deliveredShortcut;
     long deliveredAt;
 
+    ShortcutCatalog.Entry playbackShortcut;
+    long playbackAt;
+
+    // Setup/restart may observe an input without replaying its launch webhook.
+    // Adopt only an unambiguous configured player on that input.
+    void rememberPlayback(String name, long now) {
+        ShortcutCatalog.Entry selected = ShortcutCatalog.forSource(name);
+        String input = selected != null ? selected.target : name;
+        ShortcutCatalog.Entry found = null;
+        for (ShortcutCatalog.Entry entry : ShortcutCatalog.ALL) {
+            if (!"hdmi".equals(entry.kind) || !entry.target.equals(input) || entry.pauseKey.isEmpty()) continue;
+            if (found != null && !found.pauseKey.equals(entry.pauseKey)) { playbackShortcut = null; return; }
+            found = entry;
+        }
+        playbackShortcut = found;
+        playbackAt = now;
+    }
+    void playbackDispatched(ShortcutCatalog.Entry entry, long now) {
+        playbackShortcut = !entry.pauseKey.isEmpty() && "hdmi".equals(entry.kind) ? entry : null;
+        playbackAt = now;
+    }
+    ShortcutCatalog.Entry takePause(String name, boolean local, long received, boolean standby) {
+        if (playbackShortcut == null || received <= playbackAt) return null;
+        ShortcutCatalog.Entry next = local ? ShortcutCatalog.forSource(name) : null;
+        String input = next != null && "hdmi".equals(next.kind) ? next.target : name;
+        if (!standby && local && playbackShortcut.target.equals(input)) return null;
+        ShortcutCatalog.Entry previous = playbackShortcut;
+        playbackShortcut = null;
+        return previous;
+    }
+
     // Keep the HA wake request cancellable after the native HDMI handoff ended.
     ShortcutCatalog.Entry takeCancellation(String name, boolean local, long received, boolean standby) {
         if (deliveredShortcut == null || received <= deliveredAt) return null;

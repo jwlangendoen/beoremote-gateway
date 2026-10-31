@@ -1,6 +1,6 @@
 FROM python:3.13-slim-trixie
 
-ARG BUILD_VERSION=0.6.0-dev14
+ARG BUILD_VERSION=0.6.0-dev15
 ARG BUILD_ARCH=aarch64
 LABEL io.hass.version="${BUILD_VERSION}" \
       io.hass.type="app" \

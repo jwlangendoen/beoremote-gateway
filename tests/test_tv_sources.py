@@ -46,7 +46,7 @@ class FakeADB:
             ids = self.config.get("order", {}).get(group, [])
             ordered += [next(row for row in rows if row["id"] == key) for key in ids if any(row["id"] == key for row in rows)]
             ordered += [row for row in rows if row["id"] not in ids]
-        return {"tv": TV, "state": "ready", "version": "0.1.4", "source_cancel": True, "source_wake_wait": True, "source_lists": ["tv", "music"], "source_order": True, "catalog": ordered, "owner": self.config.get("owner", ""),
+        return {"tv": TV, "state": "ready", "version": "0.1.5", "source_pause": True, "source_cancel": True, "source_wake_wait": True, "source_lists": ["tv", "music"], "source_order": True, "catalog": ordered, "owner": self.config.get("owner", ""),
                 "revision": self.config["revision"], "operation": self.operation,
                 "entries": [{k: v for k, v in entry.items() if k != "callback"} for entry in self.config["entries"]],
                 "slots": [{"slot": n, "free": not any(e["slot"] == n for e in self.config["entries"])} for n in range(8)],
@@ -375,6 +375,28 @@ class EditorTests(unittest.IsolatedAsyncioTestCase):
         await self.save(id=row["id"], kind="hdmi", target="HDMI2", launch_entity="media_player.apple_tv", launch_source="YouTube")
         self.assertFalse(self.ha.enabled[key])
         self.assertEqual(self.ha.configs[key]["actions"][-1]["data"], {"source": "YouTube"})
+
+    async def test_pause_capability_is_enabled_only_after_managed_automation_is_saved(self):
+        result = await self.save(kind="hdmi", target="HDMI2", launch_entity="media_player.apple_tv", launch_source="YouTube")
+        entry = result["entries"][0]
+        private = self.editor.load(TV)["entries"][0]
+        self.assertTrue(private["launch_pause"])
+        self.assertEqual(len(self.adb.config["entries"][0]["pause_key"]), 32)
+        self.assertNotIn("pause_key", entry)
+        self.assertNotIn("launch_pause", entry)
+        key = automation_id(TV, entry["id"])
+        self.ha.configs[key]["description"] = "My customized source"
+        await self.save(id=entry["id"], kind="hdmi", target="HDMI2", launch_entity="media_player.apple_tv", launch_source="YouTube")
+        self.assertEqual(self.adb.config["entries"][0]["pause_key"], "")
+        self.assertEqual(self.ha.configs[key]["description"], "My customized source")
+
+    async def test_old_helper_requires_pause_update_before_connected_source_writes(self):
+        original = self.adb.status
+        self.adb.status = lambda: {**original(), "source_pause": False}
+        with self.assertRaisesRegex(ValueError, "Update TV Support"):
+            await self.save(kind="hdmi", target="HDMI2", launch_entity="media_player.apple_tv", launch_source="YouTube")
+        self.assertFalse(self.ha.configs)
+        self.assertFalse(self.adb.config["entries"])
 
     async def test_connected_app_requires_live_discovered_choice_before_any_write(self):
         for changes in ({"launch_entity": "media_player.other", "launch_source": "Netflix"},
