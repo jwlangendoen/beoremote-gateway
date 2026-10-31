@@ -1,3 +1,13 @@
+# 0.6.0-dev6 — development candidate
+
+- Split setup into Light, Sources and Configuration tabs, with empty states that
+  point to Configuration until a TV is chosen.
+- Choose MUSIC or TV for each source; update TV Support to 0.1.1 for native list
+  placement, changes and recovery. Existing entries default to TV.
+- Choose a connected media player and its current app/source directly, including
+  Apple TV apps, alongside the correct HDMI input and optional extra HA action.
+- Save without playback; validate live device/app choices and keep custom HA edits.
+
 # 0.6.0-dev5 — development only
 
 - Add the TV Support installer and source editor to the existing flow.

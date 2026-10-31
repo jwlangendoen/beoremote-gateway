@@ -1,14 +1,19 @@
-# TV sources
+# MUSIC and TV sources
 
-Development candidate 0.6.0-dev5 extends the existing gateway. Choose one TV,
-configure normal LIGHT actions, and optionally open TV source setup. There are
+Development candidate 0.6.0-dev6 extends the existing gateway. Choose one TV,
+configure normal LIGHT actions, and optionally set up sources.
+The UI has Light, Sources and Configuration tabs. Without a TV selection,
+Light and Sources show a link to Configuration. Native TV selection and optional
+ADB/support setup live in Configuration. There are
 no required player apps or external-device brands.
 
 ## Configuration flow
 
 1. Connect to the chosen TV over authenticated network ADB.
 2. Install the bundled, signed Beoremote TV Support APK. It has no Activity.
-3. Add a shortcut to a launchable TV app or an existing local HDMI input.
+3. In Sources, choose MUSIC or TV and a launchable local TV app, an HDMI input,
+   or an app/source reported by a connected HA media player. Choose the HDMI
+   input and the HA device explicitly; their relationship is not inferred.
 4. Optionally attach a scene, lights-off, script or normal HA automation editor.
 5. Save without playback; explicitly test on TV, change, remove or restore.
 
@@ -29,7 +34,7 @@ or credentials. `tools/check_helper.py` verifies the artifact hash and source di
 The helper supports the observed Horizon firmware aliases WEBMEDIA, DVD, DVD2,
 V_AUX, V_AUX2, PC, CAMERA and DTV, with exact ordinal checks. It refuses occupied
 slots and registers only generated `BGW_` IDs against the native local product.
-Labels and TV-list settings are saved privately before writes and restored when
+Labels and MUSIC/TV-list settings are saved privately before writes and restored when
 a shortcut is removed. Native provider operations use bound selection arguments.
 Neither the existing HDMI rows nor the source order of other apps is rewritten.
 
@@ -68,3 +73,20 @@ firmware writes, native source selection, standby and physical key behavior stil
 need the user's integral test. Keep the development PR separate from main until
 those results are recorded. No TV or household HA operation is needed to run the
 offline tests.
+
+## Connected-device apps
+
+The source editor reads `media_player` entities with SELECT_SOURCE and their
+current `source_list`. It does not hardcode Apple TV apps. Saving validates the
+entity and exact source again; no media or lighting action is executed on Save.
+The helper receives only the native HDMI route and limited callback. After that
+route completes, the HA automation selects the chosen app/source before any
+additional scene or script. It wakes a sleeping device only if TURN_ON is
+advertised, waits at most three seconds and checks request freshness again.
+Integration availability, device wake-up and physical remote behavior still
+require an integral hardware test.
+
+TV Support 0.1.1 writes both native category (TV 1 / MUSIC 3) and the firmware
+remote-list setting. Changes preserve the slot and originals; removal/restoration
+uses the correct list. Older saved entries default to TV. The gateway refuses
+MUSIC on an older helper and offers an in-place helper update.

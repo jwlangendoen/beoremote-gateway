@@ -18,6 +18,10 @@ from test_sources import WebSourcesTests
 
 
 class SourceHA(FakeHA):
+    async def states(self):
+        return await super().states() + [{"entity_id": "media_player.apple_tv", "state": "idle", "attributes": {
+            "friendly_name": "Apple TV", "supported_features": 2048 | 128, "source_list": ["Netflix", "YouTube"]}}]
+
     async def request(self, method, path, body=None):
         if method == "GET" and path == "config":
             return {"components": ["webhook"]}
@@ -32,7 +36,7 @@ class FakeADB:
         self.failure = None
 
     def status(self):
-        return {"tv": TV, "state": "ready", "version": "0.1.0", "owner": self.config.get("owner", ""),
+        return {"tv": TV, "state": "ready", "version": "0.1.1", "source_lists": ["tv", "music"], "owner": self.config.get("owner", ""),
                 "revision": self.config["revision"], "operation": self.operation,
                 "entries": [{k: v for k, v in entry.items() if k != "callback"} for entry in self.config["entries"]],
                 "slots": [{"slot": n, "free": not any(e["slot"] == n for e in self.config["entries"])} for n in range(8)],
@@ -118,6 +122,20 @@ class ValidationTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 validate_entry(source(**changes), self.status)
 
+    def test_remote_list_and_launch_fields_are_constrained(self):
+        self.assertEqual(validate_entry(source(), self.status)["source_list"], "tv")
+        self.assertEqual(validate_entry(source(source_list="music"), self.status)["source_list"], "music")
+        for changes in ({"source_list": "both"}, {"source_list": []}, {"launch_source": "Netflix"},
+                        {"launch_entity": "media_player.apple_tv", "launch_source": "Netflix"},
+                        {"kind": "hdmi", "launch_entity": "script.movie", "launch_source": "Netflix"}):
+            with self.assertRaises(ValueError):
+                validate_entry(source(**changes), self.status)
+
+    def test_music_requires_a_helper_that_supports_it(self):
+        self.status.pop("source_lists")
+        with self.assertRaisesRegex(ValueError, "Update TV Support"):
+            validate_entry(source(source_list="music"), self.status)
+
     def test_webhook_guard_rejects_stale_other_tv_and_other_source(self):
         entry = source(id="BGW_123456789abc", action_kind="script", action_target="script.movie")
         config = automation(TV, entry, "a" * 64)
@@ -154,6 +172,65 @@ class EditorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.adb.config["entries"][0]["callback"], "")
         self.assertEqual(self.editor.path(TV).stat().st_mode & 0o777, 0o600)
         self.assertTrue(status["can_restore"])
+
+    async def test_music_tv_change_and_restore_reach_native_config(self):
+        result = await self.save(source_list="music")
+        entry = result["entries"][0]
+        self.assertEqual(entry["source_list"], "music")
+        self.assertEqual(self.adb.config["entries"][0]["source_list"], "music")
+        result = await self.save(id=entry["id"], source_list="tv")
+        self.assertEqual(result["entries"][0]["source_list"], "tv")
+        restored = await self.editor.restore(self.adb, "192.0.2.10", TV, result["revision"])
+        self.assertEqual(restored["entries"][0]["source_list"], "music")
+        self.assertFalse(self.ha.configs)
+
+    async def test_connected_app_saves_without_launch_and_runs_before_extra_action(self):
+        result = await self.save(kind="hdmi", target="HDMI2", launch_entity="media_player.apple_tv",
+                                 launch_source="Netflix", action_kind="scene", action_target="scene.movie")
+        row = result["entries"][0]
+        config = self.ha.configs[automation_id(TV, row["id"])]
+        actions = config["actions"]
+        self.assertEqual(actions[-2], {"action": "media_player.select_source", "target": {"entity_id": "media_player.apple_tv"}, "data": {"source": "Netflix"}})
+        self.assertEqual(actions[-1]["action"], "scene.turn_on")
+        self.assertEqual(actions[0], actions[3])  # Recheck freshness after waiting for wake-up.
+        self.assertFalse(any(path.startswith("services/media_player/") or path == "services/scene/turn_on" for _, path, _ in self.ha.calls))
+        self.assertFalse(any(method == "test" for method, _ in self.adb.calls))
+        self.assertNotIn("launch_entity", self.adb.config["entries"][0])
+        self.assertEqual(row["launch_source"], "Netflix")
+        self.assertNotIn("callback", row)
+
+    async def test_connected_app_alone_still_creates_automation_and_edit_preserves_pause(self):
+        result = await self.save(kind="hdmi", target="HDMI2", launch_entity="media_player.apple_tv", launch_source="Netflix")
+        row = result["entries"][0]; key = automation_id(TV, row["id"])
+        self.assertEqual(self.ha.configs[key]["actions"][-1]["data"], {"source": "Netflix"})
+        self.ha.enabled[key] = False
+        await self.save(id=row["id"], kind="hdmi", target="HDMI2", launch_entity="media_player.apple_tv", launch_source="YouTube")
+        self.assertFalse(self.ha.enabled[key])
+        self.assertEqual(self.ha.configs[key]["actions"][-1]["data"], {"source": "YouTube"})
+
+    async def test_connected_app_requires_live_discovered_choice_before_any_write(self):
+        for changes in ({"launch_entity": "media_player.other", "launch_source": "Netflix"},
+                        {"launch_entity": "media_player.apple_tv", "launch_source": "Unknown app"}):
+            with self.assertRaisesRegex(ValueError, "unavailable"):
+                await self.save(kind="hdmi", target="HDMI2", **changes)
+        self.assertFalse(self.ha.configs)
+        self.assertFalse(self.adb.config["entries"])
+
+    async def test_media_choices_filter_capabilities_and_unavailable_and_keep_generic_devices(self):
+        original_states = self.ha.states
+        extras = [
+            {"entity_id": "media_player.console", "state": "idle", "attributes": {"friendly_name": "Console", "supported_features": 2048, "source_list": ["Game", "Game", "bad\nvalue"]}},
+            {"entity_id": "media_player.offline", "state": "unavailable", "attributes": {"supported_features": 2048, "source_list": ["App"]}},
+            {"entity_id": "media_player.no_support", "state": "idle", "attributes": {"supported_features": 0, "source_list": ["App"]}}]
+        async def all_states():
+            return await original_states() + extras
+        self.ha.states = all_states
+        players = await self.editor.media_players()
+        self.assertEqual([p["id"] for p in players], ["media_player.apple_tv", "media_player.console"])
+        self.assertEqual(players[1]["sources"], [{"id": "Game", "name": "Game"}])
+        result = await self.save(kind="hdmi", target="HDMI1", launch_entity="media_player.console", launch_source="Game")
+        actions = self.ha.configs[automation_id(TV, result["entries"][0]["id"])]["actions"]
+        self.assertEqual(len(actions), 2)  # Do not send an unsupported wake action.
 
     async def test_script_uses_limited_webhook_without_exposing_it_to_browser(self):
         result = await self.save(kind="hdmi", target="HDMI2", action_kind="script", action_target="script.movie")

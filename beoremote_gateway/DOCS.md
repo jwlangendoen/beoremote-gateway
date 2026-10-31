@@ -1,4 +1,4 @@
-# Beoremote Gateway 0.6.0-dev5
+# Beoremote Gateway 0.6.0-dev6
 
 The idea is to use Home Assistant a bit like BeoLiving Intelligence: your
 Beoremote One's LIGHT buttons run actions for your home. You need
@@ -31,9 +31,11 @@ Use **Change** or **Pause** beside a button, or **Open in Home Assistant** for
 more options. Scripts with required inputs need the Home Assistant editor.
 Disable any older automation for the same button so one press doesn't run both.
 
-## TV sources (experimental)
+## Sources (experimental)
 
-Choose **Set up TV sources** below **Button actions**, then **Connect to TV**.
+Use **Configuration** to choose your TV and enable **Set up sources**, then **Connect to TV**.
+Use **Light** for LIGHT buttons and **Sources** for shortcuts. Until a TV is chosen,
+both tabs point to Configuration.
 Enable network debugging (ADB) on the TV and allow the connection if asked.
 Ordinary button actions do not need ADB or a TV installation.
 
@@ -46,8 +48,11 @@ removes its old shortcuts and stops it. No shortcuts or old HA actions are
 migrated. Choose a normal input first if the old shortcut is still active.
 Other TV apps are kept.
 
-Choose **Add a source**, give it a name, then choose a TV app or an existing HDMI
-input. Optionally select a scene, lights-off, a script, or **Choose in Home Assistant**
+In **Sources**, choose **Add a source**, give it a name and choose **MUSIC** or **TV**
+for its remote list. Choose a local TV app, an existing HDMI input, or an app on a
+connected device. For the latter, select the HDMI input, the device in Home Assistant
+(such as Apple TV) and one of its reported apps or sources. The device must already
+be integrated in Home Assistant. TV Support 0.1.1 or later is needed for MUSIC. Optionally select a scene, lights-off, a script, or **Choose in Home Assistant**
 for any action or condition in its normal automation editor.
 
 **Save source** adds or updates the shortcut without opening it. **Test on TV**

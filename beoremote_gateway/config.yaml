@@ -1,6 +1,6 @@
 name: Beoremote Gateway
 description: Use Beoremote LIGHT buttons in Home Assistant. Start the app, then Open Web UI to set up.
-version: "0.6.0-dev5"
+version: "0.6.0-dev6"
 slug: beoremote_gateway
 url: https://github.com/jwlangendoen/beoremote-gateway
 arch:
